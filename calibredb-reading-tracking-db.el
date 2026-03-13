@@ -99,7 +99,7 @@ The table stores reading progress for books with columns:
   (let ((db (emacsql-sqlite-open calibredb-db-dir)))
     (emacsql db [:create-table
                  :if :not :exists reading-tracking
-                 ([(uuid :primary-key) (book-id :unique) status started-at finished-at page total-pages duration-min]
+                 ([(uuid :primary-key) (book-id integer :unique) status started-at finished-at (page integer) (total-pages integer) (duration-min integer)]
                   (:foreign-key [book-id] :references books [id] :on-delete :cascade))])))
 
 (defun crt:db--create-table-logs ()
@@ -112,7 +112,7 @@ The table stores individual reading session logs with columns:
   (let ((db (emacsql-sqlite-open calibredb-db-dir)))
     (emacsql db [:create-table
                  :if :not :exists reading-logs
-                 ([(uuid :primary-key) tracking-uuid started-at finished-at page-from page-to]
+                 ([(uuid :primary-key) tracking-uuid (started-at :unique) (finished-at integer) (page-from integer) (page-to integer)]
                   (:foreign-key [tracking-uuid] :references reading-tracking [uuid] :on-delete :cascade))])))
 
 ;;; API Functions
@@ -248,6 +248,41 @@ Returns a plist with :columns and :row, ordered by started-at descending."
                :desc t))
     (list :columns columns
           :row (car (emacsql db sql)))))
+
+(defunt crt:db-trackings (columns)
+  "Get all tracking records ordered by started-at descending.
+
+COLUMNS - list of columns to select
+
+Returns a plist with :columns and :rows (list of all tracking records)."
+  (let ((db (emacsql-sqlite-open calibredb-db-dir))
+        (sql))
+    (setq sql (daily-db--select-sql-exp
+               :columns columns
+               :table 'reading-tracking
+               :order 'started-at
+               :desc t))
+    (list :columns columns
+          :rows (emacsql db sql))))
+
+(defun crt:db-logs (tracking-uuid columns)
+  "Get all logs for TRACKING-UUID.
+
+TRACKING-UUID - parent tracking record identifier
+COLUMNS - list of columns to select
+
+Returns a plist with :columns and :rows (list of all logs),
+ordered by started-at descending (most recent first)."
+  (let ((db (emacsql-sqlite-open calibredb-db-dir))
+        (sql))
+    (setq sql (daily-db--select-sql-exp
+               :columns columns
+               :table 'reading-logs
+               :clauses `(= tracking-uuid ,tracking-uuid)
+               :order 'started-at
+               :desc t))
+    (list :columns columns
+          :rows (emacsql db sql))))
 
 (provide 'calibredb-reading-tracking-db)
 ;;; calibredb-reading-tracking-db.el ends here

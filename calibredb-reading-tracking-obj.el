@@ -78,6 +78,23 @@ row value and returns the modified OBJ."
       (eieio-oset obj (nth idx columns) (nth idx row)))
     obj))
 
+(defun crt:obj-build-list (class-func db-data)
+  "Build a list of CLASS-FUNC objects from DB-DATA.
+
+CLASS-FUNC is a constructor function for the object class.
+DB-DATA should be a plist with :columns (list of slot names) and
+:rows (list of row values). Returns a list of instantiated objects
+with slots populated from database rows."
+  (when-let ((columns (plist-get db-data :columns))
+             (rows (plist-get db-data :rows)))
+    (mapcar
+     (lambda (row)
+       (let ((obj (funcall class-func)))
+         (dolist (idx (number-sequence 0 (1- (length columns))))
+           (eieio-oset obj (nth idx columns) (nth idx row)))
+         obj))
+     rows)))
+
 (cl-defmethod crt:obj-add-or-update ((obj crt:log))
   "Save or update LOG object to the database.
 
@@ -103,6 +120,7 @@ Returns the TRACKING object with database-assigned values."
     :started-at (crt:tracking-started-at obj)
     :finished-at (crt:tracking-finished-at obj)
     :status (crt:tracking-status obj)
+    :page (crt:tracking-page obj)
     :total-pages (crt:tracking-total-pages obj)
     :book-id (crt:tracking-book-id obj)
     :duration-min (crt:tracking-duration-min obj))))
@@ -142,6 +160,26 @@ Different output depending on whether the log is finished or ongoing."
                        (crt:duration-min started-at finished-at)
                        page-from page-to))
       (print (format "Start a new log. [Time: %s] [Page: %s]" started-at page-from)))))
+
+(defun crt:trackings ()
+  "Get all reading tracking records.
+
+Returns a list of `crt:tracking' objects for all books being tracked,
+ordered by started-at descending (most recent first)."
+  (let ((columns (remove 'logs (crt:class-properties crt:tracking))))
+    (crt:obj-build-list
+     #'crt:tracking
+     (crt:db-trackings columns))))
+
+(defun crt:logs (tracking-uuid)
+  "Get all reading logs for TRACKING-UUID.
+
+Returns a list of `crt:log' objects for the specified tracking record,
+ordered by started-at descending (most recent first)."
+  (let ((columns (crt:class-properties crt:log)))
+    (crt:obj-build-list
+     #'crt:log
+     (crt:db-logs tracking-uuid columns))))
 
 (provide 'calibredb-reading-tracking-obj)
 ;;; calibredb-reading-tracking-obj.el ends here

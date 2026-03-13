@@ -49,8 +49,8 @@ SEARCH-FUNCTION should be a function like `re-search-forward' or
 Returns a plist with :page and :total-pages, or nil if not found."
   (save-excursion
     (when (funcall search-function crt:book-epub-page-info-rexp nil t)
-      (list :page (match-string 1)
-            :total-pages (match-string 2)))))
+      (list :page (string-to-number (match-string 1))
+            :total-pages (string-to-number (match-string 2))))))
 
 (defun crt:book-epub--previous-page-info ()
   "Search backward for EPUB page information in the buffer.

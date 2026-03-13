@@ -52,6 +52,13 @@
   "Return a list of property names (slot names) for EIEIO class CLSS."
   (mapcar #'cl--slot-descriptor-name (eieio-class-slots clss)))
 
+(defun crt:obj-properties (obj)
+  "Return a list of property names (slot names) for EIEIO object OBJ.
+
+Convenience wrapper around `crt:class-properties' that extracts
+the class from OBJ automatically."
+  (crt:class-properties (eieio-object-class obj)))
+
 (defun crt:message-return-nil (msg)
   "Display MSG with `message' and return nil.
 

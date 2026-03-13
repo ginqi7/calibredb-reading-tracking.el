@@ -95,21 +95,24 @@ Displays a message if there is no unfinished log to finish."
               (tracking (crt:book-tracking book))
               (log (crt:log-latest (crt:obj-uuid tracking))))
     ;; (print book)
-    (if (and log (not (crt:log-finished-at log)))
-        (progn
-          (crt:log-finished-at-writer log (crt:current-time))
-          (crt:log-page-to-writer log (crt:book-page book))
-          (setq log (crt:obj-add-or-update log))
-          (crt:tracking-duration-min-writer
-           tracking
-           (+ (crt:tracking-duration-min tracking)
-              (crt:duration-min
-               (crt:log-finished-at log)
-               (crt:log-started-at log))))
-          (crt:obj-add-or-update tracking)
-          (crt:obj-message log))
-      ;; There is not a unfinished log.
-      (message "There is not an unfinished log."))))
+    (let ((duration-min (crt:duration-min (crt:current-time) (crt:log-started-at log))))
+      (if (and log (not (crt:log-finished-at log)))
+          (if (< duration-min 1)
+              (message "Your reading duration is under 1 minute and cannot be finished.")
+            (progn
+              (crt:log-finished-at-writer log (crt:current-time))
+              (crt:log-page-to-writer log (crt:book-page book))
+              (setq log (crt:obj-add-or-update log))
+              (crt:tracking-duration-min-writer
+               tracking
+               (+ (crt:tracking-duration-min tracking)
+                  (crt:duration-min
+                   (crt:log-started-at log)
+                   (crt:log-finished-at log))))
+              (crt:obj-add-or-update tracking)
+              (crt:obj-message log)))
+        ;; There is not a unfinished log.
+        (message "There is not an unfinished log.")))))
 
 (defun crt:toggle-log ()
   "Toggle between starting and finishing a reading session.
@@ -129,6 +132,24 @@ sessions."
           ;; Latest log is unfinished.
           (crt:finish-log)
         (crt:start-log)))))
+
+(defun crt:list-tracking ()
+  "Display a table of all reading tracking records.
+
+Opens a buffer showing all books being tracked with their reading
+progress, status, and duration. The table is interactive - press RET
+on a row to see detailed actions."
+  (interactive)
+  (crt:ctable-render-list (crt:trackings)))
+
+(defun crt:init ()
+  "Initialize the reading tracking database.
+
+Creates the necessary SQLite tables (`reading-tracking' and
+`reading-logs') if they do not exist. Run this once before using
+the reading tracking features."
+  (interactive)
+  (crt:db-init))
 
 (provide 'calibredb-reading-tracking)
 ;;; calibredb-reading-tracking.el ends here
