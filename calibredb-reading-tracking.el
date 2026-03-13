@@ -78,7 +78,7 @@ Requires the buffer to be a book file in CalibreDB format."
           (message (format "Your latest log not finished. [Time: %s - %s] [Duration: %s minutes] [Page: %s - %s]"
                            (crt:log-started-at latest-log)
                            (crt:current-time)
-                           (crt:compute-duration-minutes (crt:log-started-at latest-log) (crt:current-time))
+                           (crt:duration-min (crt:log-started-at latest-log) (crt:current-time))
                            (crt:log-page-from latest-log)
                            (crt:book-page book)))
         (crt:obj-message (crt:obj-add-or-update log))))))
@@ -99,7 +99,15 @@ Displays a message if there is no unfinished log to finish."
         (progn
           (crt:log-finished-at-writer log (crt:current-time))
           (crt:log-page-to-writer log (crt:book-page book))
-          (crt:obj-message (crt:obj-add-or-update log)))
+          (setq log (crt:obj-add-or-update log))
+          (crt:tracking-duration-min-writer
+           tracking
+           (+ (crt:tracking-duration-min tracking)
+              (crt:duration-min
+               (crt:log-finished-at log)
+               (crt:log-started-at log))))
+          (crt:obj-add-or-update tracking)
+          (crt:obj-message log))
       ;; There is not a unfinished log.
       (message "There is not an unfinished log."))))
 

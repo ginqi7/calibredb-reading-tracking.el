@@ -50,7 +50,8 @@ were read during the session.")
    (page :initarg :page :reader crt:tracking-page :writer crt:tracking-page-writer)
    (total-pages :initarg :total-pages :reader crt:tracking-total-pages :writer crt:tracking-total-pages-writer)
    (status :initarg :status :reader crt:tracking-status)
-   (logs :initarg :logs :reader crt:tracking-logs))
+   (logs :initarg :logs :reader crt:tracking-logs)
+   (duration-min :initarg :duration-min :initform 0 :reader crt:tracking-duration-min :writer crt:tracking-duration-min-writer))
   "Represents reading progress tracking for a book.
 
 Tracks overall progress including current page, total pages, status,
@@ -103,7 +104,8 @@ Returns the TRACKING object with database-assigned values."
     :finished-at (crt:tracking-finished-at obj)
     :status (crt:tracking-status obj)
     :total-pages (crt:tracking-total-pages obj)
-    :book-id (crt:tracking-book-id obj))))
+    :book-id (crt:tracking-book-id obj)
+    :duration-min (crt:tracking-duration-min obj))))
 
 (cl-defun crt:tracking-get (&key uuid book-id)
   "Get tracking by UUID or BOOK-ID.
@@ -137,7 +139,7 @@ Different output depending on whether the log is finished or ongoing."
     (if finished-at
         (print (format "Finish a log. [Time: %s - %s] [Duration: %s minutes] [Page: %s - %s]"
                        started-at finished-at
-                       (crt:compute-duration-minutes started-at finished-at)
+                       (crt:duration-min started-at finished-at)
                        page-from page-to))
       (print (format "Start a new log. [Time: %s] [Page: %s]" started-at page-from)))))
 

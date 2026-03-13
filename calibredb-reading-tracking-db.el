@@ -95,11 +95,11 @@ Returns a vector suitable for `emacsql'."
 The table stores reading progress for books with columns:
 - uuid: primary key
 - book-id: unique reference to books.id
-- status, started-at, finished-at, page, total-pages"
+- status, started-at, finished-at, page, total-pages, duration-min"
   (let ((db (emacsql-sqlite-open calibredb-db-dir)))
     (emacsql db [:create-table
                  :if :not :exists reading-tracking
-                 ([(uuid :primary-key) (book-id :unique) status started-at finished-at page total-pages]
+                 ([(uuid :primary-key) (book-id :unique) status started-at finished-at page total-pages duration-min]
                   (:foreign-key [book-id] :references books [id] :on-delete :cascade))])))
 
 (defun crt:db--create-table-logs ()
@@ -153,7 +153,7 @@ Returns a plist with :columns and :row of the saved log."
     (list :columns columns
           :row (car (emacsql db select-sql-exp)))))
 
-(cl-defun crt:db-insert-or-update-tracking (&key uuid book-id started-at finished-at status page total-pages)
+(cl-defun crt:db-insert-or-update-tracking (&key uuid book-id started-at finished-at status page total-pages duration-min)
   "Insert or update a reading tracking entry.
 
 UUID - unique identifier (generated if not provided)
@@ -168,11 +168,11 @@ Returns a plist with :columns and :row of the saved tracking record."
   (crt:db--check ":book-id" book-id)
   (let* ((uuid (or uuid (crt:uuid)))
          (db (emacsql-sqlite-open calibredb-db-dir))
-         (columns '(uuid book-id started-at finished-at status page total-pages))
+         (columns '(uuid book-id started-at finished-at status page total-pages duration-min))
          (sql-exp (crt:db--insert-or-update-sql-exp
                    :table 'reading-tracking
                    :columns columns
-                   :values (list (list uuid book-id started-at finished-at status page total-pages))))
+                   :values (list (list uuid book-id started-at finished-at status page total-pages duration-min))))
          (select-sql-exp (crt:db--select-sql-exp
                           :table 'reading-tracking
                           :columns columns

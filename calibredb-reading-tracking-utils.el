@@ -60,7 +60,7 @@ with a message when a condition is not met."
   (message msg)
   nil)
 
-(defun crt:compute-duration (start finish)
+(defun crt:duration (start finish)
   "Compute the duration between START and FINISH time strings.
 
 START and FINISH are time strings parseable by `parse-time-string'.
@@ -69,12 +69,12 @@ Returns a time value suitable for `time-subtract' results."
          (finish-time (parse-time-string finish)))
     (time-subtract finish-time start-time)))
 
-(defun crt:compute-duration-minutes (start finish)
+(defun crt:duration-min (start finish)
   "Compute the duration in minutes between START and FINISH time strings.
 
 START and FINISH are time strings parseable by `parse-time-string'.
 Returns the total duration as an integer number of minutes."
-  (let* ((duration (crt:compute-duration start finish)))
+  (let* ((duration (crt:duration start finish)))
     (+ (nth 1 duration)
        (* 60 (nth 2 duration)))))
 
