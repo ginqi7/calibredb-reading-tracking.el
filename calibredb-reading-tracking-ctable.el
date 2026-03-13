@@ -26,7 +26,7 @@
 
 (require 'calibredb-reading-tracking-obj)
 (require 'transient)
-
+;; Internal Functions
 (defun crt:ctable--column-model (columns)
   "Create a list of `ctbl:cmodel' objects for COLUMNS.
 
@@ -44,6 +44,7 @@ Returns a list where each element contains the slot values followed
 by the original object (for use in click handlers)."
   (mapcar (lambda (row) (append (mapcar (lambda (col) (eieio-oref row col)) columns) (list row))) lst))
 
+;;; Classes Functions
 (cl-defmethod crt:ctable-visible-columns ((obj crt:tracking))
   "Return visible columns for TRACKING object.
 
@@ -84,6 +85,8 @@ Returns a transient prefix command with actions available for
 tracking objects in the table."
   (crt:ctable-tracking-actions))
 
+;; API Functions
+
 (defun crt:ctable-render-list (lst)
   "Render LST as an interactive table in a dedicated buffer.
 
@@ -103,7 +106,15 @@ buffer with click hooks for interactive actions."
      (setq-local buffer-read-only t)
      (switch-to-buffer (current-buffer)))))
 
-(defun crt:ctable-list-logs ()
+(defun crt:ctable-list-logs (tracking-uuid)
+  "Display logs for TRACKING-UUID.
+
+Renders a table of all reading logs associated with the specified
+tracking record."
+  (crt:ctable-render-list (crt:logs tracking-uuid)))
+
+;;; Ctable Actions
+(defun crt:ctable-tracking-action-list-logs ()
   "Display logs for the selected tracking row.
 
 Should be called from within a tracking table buffer with a row
@@ -113,20 +124,55 @@ renders its logs in a new table buffer."
   (let* ((cp (ctbl:cp-get-component))
          (row (ctbl:cp-get-selected-data-row cp))
          (tracking (car (last row))))
-    (crt:ctable-render-list (crt:logs (crt:obj-uuid tracking)))))
+    (crt:ctable-list-logs (crt:obj-uuid tracking))))
+
+(defun crt:ctable-log-action-refresh ()
+  "Refresh the log table by re-fetching logs for the selected log's tracking.
+
+Should be called from within a log table buffer with a row selected.
+Extracts the tracking UUID from the selected log and re-renders the
+log list."
+  (interactive)
+  (let* ((cp (ctbl:cp-get-component))
+         (row (ctbl:cp-get-selected-data-row cp))
+         (log (car (last row))))
+    (crt:ctable-list-logs (crt:log-tracking-uuid log))))
+
+(defun crt:ctable-log-action-add ()
+  "Add a new reading log for the selected tracking record.
+
+Prompts for started-at, finished-at, page-from, and page-to values.
+Should be called from within a log table buffer with a row selected
+to get the tracking UUID."
+  (interactive)
+  (let* ((cp (ctbl:cp-get-component))
+         (row (ctbl:cp-get-selected-data-row cp))
+         (log (car (last row)))
+         (started-at (read-string "started at: " (crt:current-time)))
+         (finished-at (read-string "finished at: " (crt:current-time)))
+         (page-from (read-string "Page from: "))
+         (page-to (read-string "Page to: ")))
+    (crt:obj-add-or-update (crt:log
+                            :tracking-uuid (crt:log-tracking-uuid log)
+                            :started-at started-at
+                            :finished-at finished-at
+                            :page-from page-from
+                            :page-to page-to))))
 
 (transient-define-prefix crt:ctable-tracking-actions ()
   "Transient menu for tracking table actions.
 
 Provides commands available when selecting a tracking row."
   ["Tracking Actions"
-   ("RET" "List Logs" crt:ctable-list-logs)])
+   ("RET" "List Logs" crt:ctable-tracking-action-list-logs)])
 
 (transient-define-prefix crt:ctable-log-actions ()
   "Transient menu for log table actions.
 
 Provides commands available when selecting a log row."
-  ["Log Actions"])
+  ["Log Actions"
+   ("a" "Add" crt:ctable-log-action-add)
+   ("r" "Refresh" crt:ctable-log-action-refresh)])
 
 (provide 'calibredb-reading-tracking-ctable)
 ;;; calibredb-reading-tracking-ctable.el ends here
