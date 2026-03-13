@@ -1,0 +1,6 @@
+https://github.com/magit/emacsql
+https://github.com/chenyanming/calibredb.el
+https://github.com/magnars/s.el
+https://github.com/magnars/dash.el
+https://github.com/tali713/esxml
+https://depp.brause.cc/nov.el.git

@@ -1,0 +1,117 @@
+#+title: Book Tracking
+#+author: Qiqi Jin
+#+language: en
+
+#+HTML: <a href ="https://github.com/ginqi7/calibredb-reading-tracking.el/blob/master/README.zh-CN.org"><img src="https://img.shields.io/badge/README-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-555555.svg"/></a>
+
+* Overview
+
+Track your reading progress for books managed by [[https://github.com/chenyanming/calibredb.el][CalibreDB]]. This package provides:
+
+- Start/finish reading session logging
+- Page tracking (current page and total pages)
+- Reading duration calculation
+- SQLite-based persistence via EmacSQL
+- EPUB pager [[https://github.com/tthkbw/epub_pager][epub_pager]]
+
+* Prerequisites
+
+** Required Emacs Packages
+
+- [[https://github.com/chenyanming/calibredb.el][calibredb.el]] - Calibre database integration
+- [[https://github.com/magit/emacsql][emacsql]] - SQL database layer
+- [[https://github.com/tthkbw/epub_pager][epub_pager]] (optional) - Generate EPUB file page information
+
+** Install
+
++ Clone the project to your Emacs configuration directory:
+  #+BEGIN_SRC sh
+    git clone https://github.com/ginqi7/calibredb-reading-tracking.el ~/.emacs.d/lisp/calibredb-reading-tracking.el
+  #+END_SRC
+
++ Add the path to =load-path=:
+  #+BEGIN_SRC emacs-lisp
+    (add-to-list 'load-path "~/.emacs.d/lisp/calibredb-reading-tracking.el")
+  #+END_SRC
+
+* Configuration
+
+#+BEGIN_SRC emacs-lisp
+  (require 'calibredb-reading-tracking)
+#+END_SRC
+
+** Variables
+
+| Variable                     | Default Value    | Description                          |
+|------------------------------+------------------+--------------------------------------|
+| =crt:time-format=            | ="%Y-%m-%d %H:%M"= | Format string for displaying timestamps |
+
+** Database Initialization
+
+Initialize the database tables by calling:
+
+#+BEGIN_SRC emacs-lisp
+  (crt:db-init)
+#+END_SRC
+
+This creates the =reading-tracking= and =reading-logs= tables in the CalibreDB database.
+
+* Features
+
+** Commands
+
+| Command           | Keybinding Suggestion | Description                              |
+|-------------------+-----------------------+------------------------------------------|
+| =crt:start-log=     | =C-c r s=               | Start a new reading session              |
+| =crt:finish-log=    | =C-c r f=               | Finish the current reading session       |
+| =crt:toggle-log=    | =C-c r t=               | Toggle start/finish (convenient single command) |
+
+** Usage
+
+1. Open an EPUB book file in CalibreDB format (directory structure like =(123)/book.epub=)
+2. Run =M-x crt/start-log= to start tracking your reading session
+3. Read your book
+4. Run =M-x crt/finish-log= when done, or use =crt/toggle-log= for both actions
+
+** Log Information
+
+Each reading session tracks:
+- Start time and finish time
+- Page range (from/to)
+- Duration in minutes
+
+* Example
+
+#+BEGIN_SRC emacs-lisp
+  ;; In your Emacs config
+  (add-to-list 'load-path "~/.emacs.d/lisp/calibredb-reading-tracking.el")
+  (require 'calibredb-reading-tracking)
+
+  ;; Optional: set keybindings
+  (global-set-key (kbd "C-c r s") #'crt:start-log)
+  (global-set-key (kbd "C-c r f") #'crt:finish-log)
+  (global-set-key (kbd "C-c r t") #'crt:toggle-log)
+
+  ;; Initialize database (only needed once)
+  (crt:db-init)
+#+END_SRC
+
+* Development
+
+** Run Tests
+
+#+BEGIN_SRC sh
+  make test
+#+END_SRC
+
+** Install Dependencies
+
+#+BEGIN_SRC sh
+  make solve-dependencies
+#+END_SRC
+
+* License
+
+GPL-3.0-or-later
+
+* Footnotes

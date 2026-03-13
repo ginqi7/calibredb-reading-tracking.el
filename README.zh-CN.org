@@ -1,0 +1,115 @@
+#+title: 书籍阅读追踪
+#+author: Qiqi Jin
+#+language: zh
+
+* 概述
+
+追踪你在 [[https://github.com/chenyanming/calibredb.el][CalibreDB]] 中管理的书籍的阅读进度。本包提供以下功能：
+
+- 开始/结束阅读会话记录
+- 页数追踪（当前页和总页数）
+- 阅读时长计算
+- 基于 SQLite 的持久化存储（通过 EmacSQL）
+- 通过 [[https://github.com/tthkbw/epub_pager][epub_pager]] 生成 EPUB pages 信息
+
+* 前提
+
+** 需要的 Emacs 包
+
+- [[https://github.com/chenyanming/calibredb.el][calibredb.el]] - Calibre 数据库集成
+- [[https://github.com/magit/emacsql][emacsql]] - SQL 数据库层
+- [[https://github.com/tthkbw/epub_pager][epub_pager]] - 生成 EPUB pages 信息
+
+** 安装
+
++ 克隆项目到你自己的 Emacs 配置目录下：
+  #+BEGIN_SRC sh
+    git clone https://github.com/ginqi7/calibredb-reading-tracking.el ~/.emacs.d/lisp/calibredb-reading-tracking.el
+  #+END_SRC
+
++ 把克隆的路径添加到 =load-path= 当中：
+  #+BEGIN_SRC emacs-lisp
+    (add-to-list 'load-path "~/.emacs.d/lisp/calibredb-reading-tracking.el")
+  #+END_SRC
+
+* 配置
+
+#+BEGIN_SRC emacs-lisp
+  (require 'calibredb-reading-tracking)
+#+END_SRC
+
+** 变量
+
+| 变量                         | 默认值           | 说明                               |
+|------------------------------+------------------+------------------------------------|
+| =crt:time-format=            | ="%Y-%m-%d %H:%M"= | 时间戳显示格式字符串               |
+
+** 数据库初始化
+
+调用以下命令初始化数据库表：
+
+#+BEGIN_SRC emacs-lisp
+  (crt:db-init)
+#+END_SRC
+
+这会在 CalibreDB 数据库中创建 =reading-tracking= 和 =reading-logs= 表。
+
+* 特性
+
+** 命令
+
+| 命令              | 建议快捷键 | 说明                                   |
+|-------------------+----------+----------------------------------------|
+| =crt:start-log=     | =C-c r s=  | 开始新的阅读会话                       |
+| =crt:finish-log=    | =C-c r f=  | 结束当前阅读会话                       |
+| =crt:toggle-log=    | =C-c r t=  | 切换开始/结束（方便的单一命令）        |
+
+** 使用方法
+
+1. 打开 CalibreDB 格式的 EPUB 书籍文件（目录结构如 =(123)/book.epub=）
+2. 运行 =M-x crt/start-log= 开始追踪阅读会话
+3. 阅读书籍
+4. 完成后运行 =M-x crt/finish-log=，或使用 =crt/toggle-log= 执行两个操作
+
+** 会话记录信息
+
+每个阅读会话追踪：
+- 开始时间和结束时间
+- 页数范围（从/到）
+- 时长（分钟）
+
+* 例子
+
+#+BEGIN_SRC emacs-lisp
+  ;; 在 Emacs 配置中
+  (add-to-list 'load-path "~/.emacs.d/lisp/calibredb-reading-tracking.el")
+  (require 'calibredb-reading-tracking)
+
+  ;; 可选：设置快捷键
+  (global-set-key (kbd "C-c r s") #'crt:start-log)
+  (global-set-key (kbd "C-c r f") #'crt:finish-log)
+  (global-set-key (kbd "C-c r t") #'crt:toggle-log)
+
+  ;; 初始化数据库（仅需一次）
+  (crt:db-init)
+#+END_SRC
+
+* 开发
+
+** 运行测试
+
+#+BEGIN_SRC sh
+  make test
+#+END_SRC
+
+** 安装依赖
+
+#+BEGIN_SRC sh
+  make solve-dependencies
+#+END_SRC
+
+* 许可证
+
+GPL-3.0-or-later
+
+* Footnotes
