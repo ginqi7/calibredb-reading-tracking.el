@@ -249,7 +249,7 @@ Returns a plist with :columns and :row, ordered by started-at descending."
     (list :columns columns
           :row (car (emacsql db sql)))))
 
-(defunt crt:db-trackings (columns)
+(defun crt:db-trackings (columns)
   "Get all tracking records ordered by started-at descending.
 
 COLUMNS - list of columns to select
