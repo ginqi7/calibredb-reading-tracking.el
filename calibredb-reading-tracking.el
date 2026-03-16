@@ -39,6 +39,11 @@ stored in the database.")
                                          (crt:db-total-changes-sql)))))
     entity))
 
+(cl-defmethod crt:delete ((entity crt:entity))
+  (when (< 0 (caar (crt:db-run-sql (list (crt:entity-delete-sql entity)
+                                         (crt:db-total-changes-sql)))))
+    entity))
+
 (cl-defmethod crt:query ((entity crt:entity))
   (let* ((result))
     (setq result (crt:db-run-sql (list (crt:entity-query-sql entity))))

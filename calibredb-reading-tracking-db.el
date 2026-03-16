@@ -182,6 +182,13 @@
              conflicts
              update-sets)))
 
+(cl-defmethod crt:entity-delete-sql ((obj crt:entity))
+  (when-let* ((db-table-name (eieio-oref obj 'table-name))
+              (primary-key (find-if #'crt:column-primary-key-p (eieio-oref obj 'columns)))
+              (value (eieio-oref primary-key 'value))
+              (full-name (crt:full-name db-table-name (crt:column-db-column-name primary-key))))
+    `[:delete-from ,db-table-name :where (= ,full-name ,value)]))
+
 (defun crt:db-run-sql (sqls)
   ""
   (let ((db (emacsql-sqlite-open calibredb-db-dir))

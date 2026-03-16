@@ -163,6 +163,16 @@ to get the tracking UUID."
                               (crt:column-page-to :value page-to))))
     (crt:ctable-log-action-refresh)))
 
+(defun crt:ctable-log-action-delete ()
+  ""
+  (interactive)
+  (let* ((cp (ctbl:cp-get-component))
+         (row (ctbl:cp-get-selected-data-row cp))
+         (log (car (last row))))
+    (when (yes-or-no-p (format "Are you sure you want to delete: %s?" (crt:entity-message log)))
+        (crt:delete log))
+    (crt:ctable-log-action-refresh)))
+
 (transient-define-prefix crt:ctable-tracking-actions ()
   "Transient menu for tracking table actions.
 
@@ -176,6 +186,7 @@ Provides commands available when selecting a tracking row."
 Provides commands available when selecting a log row."
   ["Log Actions"
    ("a" "Add" crt:ctable-log-action-add)
+   ("d" "Delete" crt:ctable-log-action-delete)
    ("r" "Refresh" crt:ctable-log-action-refresh)])
 
 (provide 'calibredb-reading-tracking-ctable)
