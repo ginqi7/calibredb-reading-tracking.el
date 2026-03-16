@@ -24,6 +24,8 @@
 
 ;;; Code:
 (require 'calibredb-reading-tracking-epub)
+(require 'calibredb-reading-tracking-ctable)
+(require 'calibredb-reading-tracking-db)
 
 (defcustom crt:time-format "%Y-%m-%d %H:%M"
   "Format string for displaying timestamps.
@@ -31,30 +33,46 @@
 Passed to `format-time-string' for generating time strings
 stored in the database.")
 
-(defun crt:current-time ()
-  "Return the current time formatted with `crt:time-format'."
-  (format-time-string crt:time-format))
+;;; API Functions
+(cl-defmethod crt:add-or-update ((entity crt:entity))
+  (when (< 0 (caar (crt:db-run-sql (list (crt:entity-insert-or-update-sql entity)
+                                         (crt:db-total-changes-sql)))))
+    entity))
 
-(defun crt:parse-book-buffer ()
-  "Parse the current buffer to create a book tracking object.
+(cl-defmethod crt:query ((entity crt:entity))
+  (let* ((result))
+    (setq result (crt:db-run-sql (list (crt:entity-query-sql entity))))
+    ;; (print result)
+    (crt:entity-build-list entity result)))
 
-Extracts the book ID from the directory name (expects pattern like
-\"(123)/\" for CalibreDB structure) and creates an appropriate book
-object based on file extension.
+(defun crt:get-log (tracking-uuid)
+  (let* ((log (crt:entity-substitute-columns
+               (crt:entity-log)
+               (list (crt:column-tracking-uuid
+                      :where '=
+                      :value tracking-uuid))))
+         (car (crt:query log)))))
 
-Currently supports EPUB files. Returns a `crt:book' object or nil
-if the file is not in a recognized CalibreDB format."
-  (let* ((dir-name (file-name-directory (buffer-file-name)))
-         (extension (file-name-extension (buffer-file-name)))
-         (id))
-    (when (string-match "(\\([0-9]+\\))/$" dir-name)
-      (setq id (string-to-number (match-string 1 dir-name)))
-      (pcase (intern extension)
-        ('epub (crt:book-new (crt:book-epub
-                              :uuid id
-                              :file (buffer-file-name))))))))
+(defun crt:parse-buffer ()
+  ""
+  (let* ((parser (crt:parser-build))
+         (page-info (crt:parse parser))
+         (tracking (crt:entity-substitute-columns
+                    (crt:entity-tracking)
+                    (list (crt:column-book-id
+                           :value (plist-get page-info :id)
+                           :where '=))))
+         (exist-trackings (crt:query tracking)))
+    ;; (print (plist-get page-info :id))
+    (setq tracking (or (car exist-trackings) tracking))
+    (crt:entity-substitute-columns
+     tracking
+     (list (crt:column-page :value (plist-get page-info :page))
+           (crt:column-total-pages :value (plist-get page-info :total-pages))))
+    ;; (print tracking)
+    (crt:add-or-update tracking)))
 
-(defun crt:start-log ()
+(defun crt:start-log (&optional tracking exist-log)
   "Start a new reading session log for the current book.
 
 Creates a new log entry with the current timestamp and page number.
@@ -63,27 +81,26 @@ duration elapsed since it started instead of creating a new log.
 
 Requires the buffer to be a book file in CalibreDB format."
   (interactive)
-  (when-let* ((book (or (crt:parse-book-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name)))))
-              (tracking (crt:book-tracking book)))
-    ;; (print book)
-    (let ((latest-log (crt:log-latest (crt:obj-uuid tracking)))
-          (log (crt:log
-                :tracking-uuid (crt:obj-uuid tracking)
-                :started-at (crt:current-time)
-                :finished-at nil
-                :page-from (crt:book-page book)
-                :page-to nil)))
-      (if (and latest-log (not (crt:log-finished-at latest-log)))
+  (when-let ((tracking (or tracking (crt:parse-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name))))))
+    (let* ((log (crt:entity-substitute-columns
+                 (crt:entity-log)
+                 (list (crt:column-tracking-uuid
+                        :where '=
+                        :value (crt:entity-column-value tracking crt:column-uuid)))))
+           (exist-log (or exist-log (car (crt:query log)))))
+      (if (and exist-log (not (crt:entity-column-value exist-log crt:column-finished-at)))
           ;; Latest log is unfinished.
-          (message (format "Your latest log not finished. [Time: %s - %s] [Duration: %s minutes] [Page: %s - %s]"
-                           (crt:log-started-at latest-log)
-                           (crt:current-time)
-                           (crt:duration-min (crt:log-started-at latest-log) (crt:current-time))
-                           (crt:log-page-from latest-log)
-                           (crt:book-page book)))
-        (crt:obj-message (crt:obj-add-or-update log))))))
+          (message (format "Your latest log not finished. %s" (crt:entity-message exist-log)))
+        (message
+         (format "Starting a new log: %s"
+                 (crt:entity-message
+                  (crt:add-or-update
+                   (crt:entity-substitute-columns
+                    log
+                    (list (crt:column-page-from
+                           :value (crt:entity-column-value tracking crt:column-page))))))))))))
 
-(defun crt:finish-log ()
+(defun crt:finish-log (&optional tracking exist-log)
   "Finish the current reading session log.
 
 Updates the latest unfinished log with the current timestamp and
@@ -91,27 +108,25 @@ page number, then saves it to the database.
 
 Displays a message if there is no unfinished log to finish."
   (interactive)
-  (when-let* ((book (or (crt:parse-book-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name)))))
-              (tracking (crt:book-tracking book))
-              (log (crt:log-latest (crt:obj-uuid tracking))))
-    ;; (print book)
-    (let ((duration-min (crt:duration-min (crt:current-time) (crt:log-started-at log))))
-      (if (and log (not (crt:log-finished-at log)))
-          (if (< duration-min 1)
-              (message "Your reading duration is under 1 minute and cannot be finished.")
-            (progn
-              (crt:log-finished-at-writer log (crt:current-time))
-              (crt:log-page-to-writer log (crt:book-page book))
-              (setq log (crt:obj-add-or-update log))
-              (crt:tracking-duration-min-writer
-               tracking
-               (+ (crt:tracking-duration-min tracking)
-                  (crt:duration-min
-                   (crt:log-started-at log)
-                   (crt:log-finished-at log))))
-              (crt:obj-add-or-update tracking)
-              (crt:obj-message log)))
-        ;; There is not a unfinished log.
+  (when-let ((tracking (or tracking (crt:parse-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name))))))
+    (let* ((log (crt:entity-substitute-columns
+                 (crt:entity-log)
+                 (list (crt:column-tracking-uuid
+                        :where '=
+                        :value (crt:entity-column-value tracking crt:column-uuid)))))
+           (exist-log (or exist-log (car (crt:query log)))))
+      (if (and exist-log (not (crt:entity-column-value exist-log crt:column-finished-at)))
+          (if (< (- (crt:current-time) (crt:entity-column-value exist-log crt:column-started-at)) 60)
+              (message (format "Your reading duration is under 1 minute[%ss] and cannot be finished: %s"
+                               (- (crt:current-time) (crt:entity-column-value exist-log crt:column-started-at))
+                               (crt:entity-message exist-log)))
+            (message (format "Finished a log: %s"
+                             (crt:entity-message
+                              (crt:add-or-update
+                               (crt:entity-substitute-columns
+                                exist-log
+                                (list (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page))
+                                      (crt:column-finished-at :value (crt:current-time)))))))))
         (message "There is not an unfinished log.")))))
 
 (defun crt:toggle-log ()
@@ -124,23 +139,36 @@ Checks if there's an unfinished log for the current book:
 This provides a convenient single command for tracking reading
 sessions."
   (interactive)
-  (when-let* ((book (or (crt:parse-book-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name)))))
-              (tracking (crt:book-tracking book)))
-    ;; (print book)
-    (let ((latest-log (crt:log-latest (crt:obj-uuid tracking))))
-      (if (and latest-log (not (crt:log-finished-at latest-log)))
+  (when-let ((tracking (or (crt:parse-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name))))))
+    (let* ((log (crt:entity-substitute-columns
+                  (crt:entity-log)
+                  (list (crt:column-tracking-uuid
+                         :where '=
+                         :value (crt:entity-column-value tracking crt:column-uuid)))))
+           (exist-log (car (crt:query log))))
+      (if (and exist-log (not (crt:entity-column-value exist-log crt:column-finished-at)))
           ;; Latest log is unfinished.
-          (crt:finish-log)
-        (crt:start-log)))))
+          (crt:finish-log tracking exist-log)
+        (crt:start-log tracking exist-log)))))
 
 (defun crt:list-tracking ()
-  "Display a table of all reading tracking records.
-
-Opens a buffer showing all books being tracked with their reading
-progress, status, and duration. The table is interactive - press RET
-on a row to see detailed actions."
+  ""
   (interactive)
-  (crt:ctable-render-list (crt:trackings)))
+  (crt:ctable-render-list (crt:query (crt:entity-tracking))))
+
+(defun crt:list-logs ()
+  ""
+  (interactive)
+  (when-let* ((tracking (or (crt:parse-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name))))))
+    (crt:ctable-render-list
+     (crt:query
+      (crt:entity-substitute-columns
+       (crt:entity-log)
+       (list (crt:column-tracking-uuid
+              :where '=
+              :value (crt:entity-column-value tracking crt:column-uuid))))))))
+
+(crt:query (crt:entity-tracking))
 
 (defun crt:init ()
   "Initialize the reading tracking database.
@@ -149,7 +177,7 @@ Creates the necessary SQLite tables (`reading-tracking' and
 `reading-logs') if they do not exist. Run this once before using
 the reading tracking features."
   (interactive)
-  (crt:db-init))
+  (crt:db-init-tables))
 
 (provide 'calibredb-reading-tracking)
 ;;; calibredb-reading-tracking.el ends here

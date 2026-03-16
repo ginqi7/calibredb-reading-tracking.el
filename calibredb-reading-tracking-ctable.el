@@ -27,58 +27,46 @@
 (require 'calibredb-reading-tracking-obj)
 (require 'transient)
 ;; Internal Functions
-(defun crt:ctable--column-model (columns)
-  "Create a list of `ctbl:cmodel' objects for COLUMNS.
 
-COLUMNS is a list of symbols representing slot names.
-Returns a list of column model objects with titles derived from
-the slot names, all left-aligned."
-  (mapcar (lambda (col) (make-ctbl:cmodel :title (symbol-name col) :align 'left)) columns))
+(cl-defmethod crt:ctable--column-model ((obj crt:ctable-column))
+  (let ((title (eieio-oref obj 'title))
+        (align (eieio-oref obj 'align)))
+   (make-ctbl:cmodel :title title :align align)))
 
-(defun crt:ctable--model-data (columns lst)
-  "Extract model data from LST for the given COLUMNS.
+(defun crt:ctable--column-models (columns)
+  ""
+  (mapcar #'crt:ctable--column-model columns))
 
-COLUMNS is a list of slot symbols to extract.
-LST is a list of EIEIO objects.
-Returns a list where each element contains the slot values followed
-by the original object (for use in click handlers)."
-  (mapcar (lambda (row) (append (mapcar (lambda (col) (eieio-oref row col)) columns) (list row))) lst))
+(defun crt:ctable--model-data (lst)
+  ""
+  (mapcar (lambda (entity)
+            (let ((columns (remove-if-not (lambda (column) (eieio-oref column 'ctable-column))
+                            (eieio-oref entity 'columns))))
+              (append (mapcar (lambda (column) (crt:column-format column)) columns) (list entity))))
+          lst))
 
 ;;; Classes Functions
-(cl-defmethod crt:ctable-visible-columns ((obj crt:tracking))
-  "Return visible columns for TRACKING object.
 
-Returns all slot names except 'logs' and 'uuid' for table display."
-  (let ((columns (crt:obj-properties obj)))
-    (remove 'logs (remove 'uuid columns))))
-
-(cl-defmethod crt:ctable-visible-columns ((obj crt:log))
-  "Return visible columns for LOG object.
-
-Returns all slot names except 'logs' and 'uuid' for table display."
-  (let ((columns (crt:obj-properties obj)))
-    (remove 'logs (remove 'uuid columns))))
-
-(cl-defmethod crt:ctable-list-buffer ((obj crt:log))
+(cl-defmethod crt:ctable-list-buffer ((obj crt:entity-log))
   "Return or create the buffer for displaying LOG list.
 
 Returns the \"*reading-logs*\" buffer."
   (get-buffer-create "*reading-logs*"))
 
-(cl-defmethod crt:ctable-list-buffer ((obj crt:tracking))
+(cl-defmethod crt:ctable-list-buffer ((obj crt:entity-tracking))
   "Return or create the buffer for displaying TRACKING list.
 
 Returns the \"*reading-tracking*\" buffer."
   (get-buffer-create "*reading-tracking*"))
 
-(cl-defmethod crt:ctable-actions ((obj crt:log))
+(cl-defmethod crt:ctable-actions ((obj crt:entity-log))
   "Return the transient menu for LOG actions.
 
 Returns a transient prefix command with actions available for log
 objects in the table."
   (crt:ctable-log-actions))
 
-(cl-defmethod crt:ctable-actions ((obj crt:tracking))
+(cl-defmethod crt:ctable-actions ((obj crt:entity-tracking))
   "Return the transient menu for TRACKING actions.
 
 Returns a transient prefix command with actions available for
@@ -87,18 +75,19 @@ tracking objects in the table."
 
 ;; API Functions
 
-(defun crt:ctable-render-list (lst)
+(defun crt:ctable-render-list (lst &optional header-line)
   "Render LST as an interactive table in a dedicated buffer.
 
 LST should be a list of EIEIO objects of the same type.
 Creates column models, extracts data, and displays in a read-only
 buffer with click hooks for interactive actions."
   (when-let* ((obj (car lst))
-              (visible-columns (crt:ctable-visible-columns obj))
-              (column-model (crt:ctable--column-model visible-columns))
-              (data (crt:ctable--model-data visible-columns lst))
+              (column-model (crt:ctable--column-models (remove nil (mapcar (lambda (column) (eieio-oref column 'ctable-column)) (eieio-oref obj 'columns)))))
+              (data (crt:ctable--model-data lst))
               (model (make-ctbl:model :column-model column-model :data data)))
     (with-current-buffer (crt:ctable-list-buffer obj)
+      (when header-line
+       (setq-local header-line-format header-line))
       (let ((inhibit-read-only t))
         (erase-buffer)
         (setq component (ctbl:create-table-component-region :model model))
@@ -123,8 +112,21 @@ renders its logs in a new table buffer."
   (interactive)
   (let* ((cp (ctbl:cp-get-component))
          (row (ctbl:cp-get-selected-data-row cp))
-         (tracking (car (last row))))
-    (crt:ctable-list-logs (crt:obj-uuid tracking))))
+         (tracking (car (last row)))
+         (tracking-uuid (crt:entity-column-value tracking crt:column-uuid))
+         (log (crt:entity-log
+               :columns
+               (list
+                (crt:column-uuid)
+                (crt:column-started-at)
+                (crt:column-finished-at)
+                (crt:column-page-from)
+                (crt:column-page-to)
+                (crt:column-tracking-uuid
+                 :where '=
+                 :value tracking-uuid)
+                (crt:column-duration)))))
+    (crt:ctable-render-list (crt:query log) (format "Book: %s" (crt:entity-column-value tracking crt:column-book-title)))))
 
 (defun crt:ctable-log-action-refresh ()
   "Refresh the log table by re-fetching logs for the selected log's tracking.
@@ -148,8 +150,8 @@ to get the tracking UUID."
   (let* ((cp (ctbl:cp-get-component))
          (row (ctbl:cp-get-selected-data-row cp))
          (log (car (last row)))
-         (started-at (read-string "started at: " (crt:current-time)))
-         (finished-at (read-string "finished at: " (crt:current-time)))
+         (started-at (crt:parse-time-string (read-string "started at: " (crt:current-time))))
+         (finished-at (crt:parse-time-string (read-string "finished at: " (crt:current-time))))
          (page-from (read-string "Page from: "))
          (page-to (read-string "Page to: ")))
     (crt:obj-add-or-update (crt:log

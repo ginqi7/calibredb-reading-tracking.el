@@ -28,261 +28,178 @@
 (require 'emacsql)
 (require 'emacsql-sqlite)
 (require 'cl-lib)
-(require 'calibredb-reading-tracking-utils)
-
-;;; Custom Variables
-
-(defcustom calibredb-reading-tracking-db-limit 100
-  "Default limit for database queries.")
-
-;;; Internal Variables
+(require 'calibredb-reading-tracking-obj)
 
 ;;; Internal Functions
-(defun crt:db--check (name value)
-  "Signal an error if VALUE is nil.
+(cl-defmethod crt:db--schema ((obj crt:column))
+  (let* ((db-column (crt:column-db-column obj))
+         (column (crt:db-column-name db-column))
+         (type (crt:db-column-type db-column))
+         (virtual (crt:db-column-virtual db-column))
+         (not-null-p (crt:db-column-not-null-p db-column))
+         (primary-key-p (crt:db-column-primary-key-p db-column))
+         (unique-p (crt:db-column-unique-p db-column))
+         (external-p (crt:db-column-external-p db-column)))
+    (unless external-p
+      (remove nil (append (list column
+                                (when type type)
+                                (when primary-key-p :primary-key)
+                                (when unique-p :unique)
+                                (when not-null-p :not-null))
+                          (when virtual (list :generated :always :as virtual :virtual)))))))
 
-NAME is used in the error message to identify the missing argument."
-  (unless value
-    (error (format "%s must be provided." name))))
+;; (crt:db--schema (crt:column-uuid))
 
-(cl-defun crt:db--select-sql-exp (&key columns table clauses offset limit order desc)
-  "Build a SELECT SQL expression for EmacSQL.
+(cl-defmethod crt:db--constraint ((obj crt:column))
+  (let* ((db-column (crt:column-db-column obj))
+         (column (crt:db-column-name db-column))
+         (foreign-key-p (crt:db-column-foreign-key-p db-column))
+         (reference-table (crt:db-column-reference-table db-column))
+         (reference-column (crt:db-column-reference-column db-column)))
+    (when foreign-key-p
+      `(:foreign-key [,column] :references ,reference-table [,reference-column] :on-delete :cascade))))
 
-COLUMNS - list of columns to select (default: *)
-TABLE - table name to select from (required)
-CLAUSES - WHERE conditions
-OFFSET - number of rows to skip (default: 0)
-LIMIT - max rows to return (default: `calibredb-reading-tracking-db-limit')
-ORDER - column to order by
-DESC - if non-nil, order in descending order
+;; (crt:db--constraint (crt:column-tracking-uuid))
 
-Returns a vector suitable for `emacsql'."
-  (crt:db--check ":table" table)
-  (let ((columns (or columns '(*)))
-        (offset (or offset 0))
-        (limit (or limit calibredb-reading-tracking-db-limit)))
-    (vconcat [:select]
-             (list (vconcat columns))
-             (list :from table)
-             (when clauses (list :where clauses))
-             (when order (list :order :by order (when desc :desc)))
-             (list :limit (vector offset limit)))))
+(cl-defmethod crt:db--column-full-name ((obj crt:column) table-name)
+  (let* ((column (crt:column-db-column-name obj))
+         (external (crt:column-external-p obj)))
+    ;; TODO: Refactor to generalize the full name logic.
+    (if external
+        column
+      (crt:full-name table-name column))))
 
-(cl-defun crt:db--insert-or-update-sql-exp (&key columns table values)
-  "Build an INSERT OR UPDATE SQL expression for EmacSQL with upsert.
+;; (crt:db--column-full-name (crt:column-uuid) 'reading-logs)
 
-COLUMNS - list of column names (required)
-TABLE - table name to insert into (required)
-VALUES - list of value lists corresponding to columns (required)
+(cl-defmethod crt:db--column-where ((obj crt:column))
+  (let ((where (eieio-oref obj 'where))
+        (value (eieio-oref obj 'value))
+        (column (crt:column-db-column-name obj)))
+    (list where column value)))
 
-Uses ON CONFLICT DO UPDATE for upsert behavior on the first column.
-Returns a vector suitable for `emacsql'."
-  (crt:db--check ":table" table)
-  (crt:db--check ":columns" columns)
-  (crt:db--check ":values" values)
-  (vconcat (vector :insert :into table)
-           (list (vconcat columns))
-           (list :values (mapcar #'vconcat values))
-           (list :on :conflict (vector (intern (format ":%s"(car columns)))))
-           (list :do :update :set)
-           (list (vconcat (mapcar
-                           (lambda (column) (list '= column (intern (format "excluded:%s" column))))
-                           (cdr columns))))))
+;; (crt:db--column-where (crt:column-uuid :value "6483c7c1-6d97-484b-887f-67ad2cc63d55" :where '=))
 
-(defun crt:db--create-table-tracking ()
-  "Create the `reading-tracking' table if it does not exist.
+(cl-defmethod crt:db--order-by (table-name (obj crt:column))
+  (let ((order-by (eieio-oref obj 'order-by))
+        (column (crt:column-db-column-name obj)))
+    (list order-by (crt:full-name table-name column))))
 
-The table stores reading progress for books with columns:
-- uuid: primary key
-- book-id: unique reference to books.id
-- status, started-at, finished-at, page, total-pages, duration-min"
-  (let ((db (emacsql-sqlite-open calibredb-db-dir)))
-    (emacsql db [:create-table
-                 :if :not :exists reading-tracking
-                 ([(uuid :primary-key) (book-id integer :unique) status started-at finished-at (page integer) (total-pages integer) (duration-min integer)]
-                  (:foreign-key [book-id] :references books [id] :on-delete :cascade))])))
+;; (crt:db--order-by (crt:column-uuid :order-by 'desc) 'reading-log)
 
-(defun crt:db--create-table-logs ()
-  "Create the `reading-logs' table if it does not exist.
+(cl-defmethod crt:db--selects ((obj crt:entity))
+  (when-let* ((columns (remove-if-not #'crt:column-selected (eieio-oref obj 'columns)))
+              (primary-table (eieio-oref obj 'table-name)))
+    (vconcat (mapcar (lambda (column)
+                       (if (crt:column-external-p column)
+                           (crt:column-db-column-name column)
+                         (crt:full-name primary-table (crt:column-db-column-name column))))
+                     columns))))
 
-The table stores individual reading session logs with columns:
-- uuid: primary key
-- tracking-uuid: foreign key to reading-tracking.uuid
-- started-at, finished-at, page-from, page-to"
-  (let ((db (emacsql-sqlite-open calibredb-db-dir)))
-    (emacsql db [:create-table
-                 :if :not :exists reading-logs
-                 ([(uuid :primary-key) tracking-uuid (started-at :unique) (finished-at integer) (page-from integer) (page-to integer)]
-                  (:foreign-key [tracking-uuid] :references reading-tracking [uuid] :on-delete :cascade))])))
+;; (crt:db--selects (crt:entity-log))
+;; (crt:db--selects (crt:entity-tracking))
+
+(cl-defmethod crt:db--join-on ((obj crt:column) table-name)
+  (when-let* ((reference-table (crt:column-reference-table obj))
+              (reference-column (crt:column-reference-column obj)))
+    `(:left-join ,reference-table :on
+                 (= ,(crt:db--column-full-name obj table-name)
+                    ,(crt:full-name reference-table reference-column)))))
+
+(cl-defmethod crt:entity--join-ons ((obj crt:entity))
+  (when-let* ((external-columns (remove-if-not (lambda (column) (eieio-oref column 'selected)) (remove-if-not #'crt:column-external-p (eieio-oref obj 'columns))))           (reference-columns (remove-if-not #'crt:column-reference-table (eieio-oref obj 'columns)))
+              (main-table (eieio-oref obj 'table-name))
+              (left-joins (mapcar (lambda (column) (crt:db--join-on column main-table)) reference-columns)))
+    (when external-columns
+      (apply #'append left-joins))))
+
+(cl-defmethod crt:db--wheres ((obj crt:entity))
+  (when-let ((wheres (mapcar #'crt:db--column-where (remove-if-not #'crt:column-where (eieio-oref obj 'columns)))))
+    (list :where (append '(and (= 1 1)) wheres))))
+
+(cl-defmethod crt:db--group-by ((obj crt:entity))
+  (when-let ((main-table (eieio-oref obj 'table-name))
+             (primary-key (find-if #'crt:column-primary-key-p (eieio-oref obj 'columns))))
+    (list :group-by (crt:db--column-full-name primary-key main-table))))
+
+(cl-defmethod crt:db--order-bys ((obj crt:entity))
+  (when-let ((order-bys (mapcar (apply-partially #'crt:db--order-by (eieio-oref obj 'table-name))
+                                (remove-if-not #'crt:column-order-by (eieio-oref obj 'columns)))))
+    `(:order-by ,(vconcat order-bys))))
+
+(cl-defmethod crt:db--stored-columns ((obj crt:entity))
+  (let* ((columns (eieio-oref obj 'columns)))
+    (remove-if #'crt:column-external-p (remove-if #'crt:column-virtual columns))))
+
+(cl-defmethod crt:db--conflicts ((obj crt:entity))
+  (let* ((columns (crt:db--stored-columns obj))
+         (db-columns (mapcar (lambda (column) (eieio-oref column 'db-column)) columns))
+         (conflict-columns (remove-if-not (lambda (column) (eieio-oref column 'primary-key)) db-columns)))
+    `(:on-conflict ,(vconcat (mapcar (lambda (column) (intern (format ":%s" (eieio-oref column 'column)))) conflict-columns)))))
+
+(cl-defmethod crt:db--update-sets ((obj crt:entity))
+  (let* ((columns (crt:db--stored-columns obj))
+         (db-columns (mapcar (lambda (column) (eieio-oref column 'db-column)) columns))
+         (update-columns (remove-if (lambda (column) (eieio-oref column 'primary-key)) db-columns))
+         (update-columns-names (mapcar (lambda (column) (eieio-oref column 'column)) update-columns)))
+    `(:do-update-set ,(vconcat (mapcar (lambda (column) (list '= column (intern (format "excluded:%s" column)))) update-columns-names)))))
 
 ;;; API Functions
-(defun crt:db-init ()
-  "Initialize the database schema for reading tracking.
 
-Creates the `reading-tracking' and `reading-logs' tables if they
-do not already exist."
-  (crt:db--create-table-tracking)
-  (crt:db--create-table-logs))
+(cl-defmethod crt:db-create-table-sql ((obj crt:entity))
+  (let* ((db-table-name (eieio-oref obj 'table-name))
+         (columns (eieio-oref obj 'columns))
+         (db-columns (vconcat (remove nil (mapcar #'crt:db--schema columns))))
+         (db-constraints (car (remove nil (mapcar #'crt:db--constraint columns)))))
+    `[:create-table
+      :if-not-exists ,db-table-name
+      (,db-columns
+       ,db-constraints)]))
 
-;; (crt:db-init)
+(cl-defmethod crt:db-query-sql ((obj crt:entity))
+  (let* ((db-table-name (eieio-oref obj 'table-name))
+         (selects (crt:db--selects obj))
+         (join-on (crt:entity--join-ons obj))
+         (wheres (crt:db--wheres obj))
+         (group-by (crt:db--group-by obj))
+         (order-bys (crt:db--order-bys obj))
+         (offset (or (eieio-oref obj 'offset) 0))
+         (limit (or (eieio-oref obj 'limit) 1000)))
+    (vconcat `[:select ,selects :from ,db-table-name]
+              join-on
+              wheres
+              group-by
+              order-bys
+              `[:limit ,limit :offset ,offset])))
 
-(cl-defun crt:db-insert-or-update-log (&key uuid started-at finished-at page-from page-to tracking-uuid)
-  "Insert or update a reading log entry.
+(cl-defmethod crt:db-insert-or-update-sql ((obj crt:entity))
+  (let* ((db-table-name (eieio-oref obj 'table-name))
+         (stored-columns (crt:db--stored-columns obj))
+         (values (vconcat (mapcar (lambda (column) (eieio-oref column 'value)) stored-columns)))
+         (selects (vconcat (mapcar (lambda (column) (eieio-oref (eieio-oref column 'db-column) 'column)) stored-columns)))
+         (conflicts (crt:db--conflicts obj))
+         (update-sets (crt:db--update-sets obj)))
+    (vconcat `[:insert-into ,db-table-name ,selects :values ,values]
+             conflicts
+             update-sets)))
 
-UUID - unique identifier (generated if not provided)
-STARTED-AT - when the reading session started
-FINISHED-AT - when the reading session ended (can be nil)
-PAGE-FROM - starting page number
-PAGE-TO - ending page number
-TRACKING-UUID - parent tracking record identifier (required)
-
-Returns a plist with :columns and :row of the saved log."
-  (crt:db--check ":tracking-uuid" tracking-uuid)
-  (let* ((uuid (or uuid (crt:uuid)))
-         (db (emacsql-sqlite-open calibredb-db-dir))
-         (columns '(uuid started-at finished-at page-from page-to tracking-uuid))
-         (sql-exp (crt:db--insert-or-update-sql-exp
-                   :table 'reading-logs
-                   :columns columns
-                   :values (list (list uuid started-at finished-at page-from page-to tracking-uuid))))
-         (select-sql-exp (crt:db--select-sql-exp
-                          :table 'reading-logs
-                          :columns columns
-                          :clauses `(= uuid ,uuid))))
-    (emacsql db sql-exp)
-    (list :columns columns
-          :row (car (emacsql db select-sql-exp)))))
-
-(cl-defun crt:db-insert-or-update-tracking (&key uuid book-id started-at finished-at status page total-pages duration-min)
-  "Insert or update a reading tracking entry.
-
-UUID - unique identifier (generated if not provided)
-BOOK-ID - CalibreDB book identifier (required)
-STARTED-AT - when reading started
-FINISHED-AT - when reading finished
-STATUS - current reading status
-PAGE - current page number
-TOTAL-PAGES - total pages in the book
-
-Returns a plist with :columns and :row of the saved tracking record."
-  (crt:db--check ":book-id" book-id)
-  (let* ((uuid (or uuid (crt:uuid)))
-         (db (emacsql-sqlite-open calibredb-db-dir))
-         (columns '(uuid book-id started-at finished-at status page total-pages duration-min))
-         (sql-exp (crt:db--insert-or-update-sql-exp
-                   :table 'reading-tracking
-                   :columns columns
-                   :values (list (list uuid book-id started-at finished-at status page total-pages duration-min))))
-         (select-sql-exp (crt:db--select-sql-exp
-                          :table 'reading-tracking
-                          :columns columns
-                          :clauses `(= uuid ,uuid))))
-    (emacsql db sql-exp)
-    (crt:db-get-tracking :db db :uuid uuid :book-id book-id :columns columns)))
-
-(cl-defun crt:db-get-tracking (&key db uuid book-id columns)
-  "Get a tracking record by UUID or BOOK-ID.
-
-DB - database connection (defaults to opening calibredb-db-dir)
-UUID - tracking record UUID
-BOOK-ID - CalibreDB book identifier
-COLUMNS - list of columns to select
-
-Returns a plist with :columns and :row, or nil if not found."
-  (let ((db (or db (emacsql-sqlite-open calibredb-db-dir)))
-        (clauses '(= 1 1))
-        (sql)
-        (row))
-    (when uuid
-      (setq clauses `(and ,clauses (= uuid ,uuid))))
-    (when book-id
-      (setq clauses `(and ,clauses (= book-id ,book-id))))
-    (setq sql (daily-db--select-sql-exp
-               :columns columns
-               :table 'reading-tracking
-               :clauses clauses
-               :limit 1))
-    (setq row (car (emacsql db sql)))
-    (when row (list :columns columns :row row))))
-
-(cl-defun crt:db-get-log (&key db uuid tracking-uuid columns)
-  "Get a log record by UUID or TRACKING-UUID.
-
-DB - database connection (defaults to opening calibredb-db-dir)
-UUID - log record UUID
-TRACKING-UUID - parent tracking record identifier
-COLUMNS - list of columns to select
-
-Returns a plist with :columns and :row, or nil if not found."
-  (let ((db (or db (emacsql-sqlite-open calibredb-db-dir)))
-        (clauses '(= 1 1))
-        (sql)
-        (row))
-    (when uuid
-      (setq clauses `(and ,clauses (= uuid ,uuid))))
-    (when tracking-uuid
-      (setq clauses `(and ,clauses (= tracking-uuid ,tracking-uuid))))
-    (setq sql (daily-db--select-sql-exp
-               :columns columns
-               :table 'reading-logs
-               :clauses clauses
-               :limit 1))
-    (setq row (car (emacsql db sql)))
-    (when row (list :columns columns :row row))))
-
-(defun crt:db-latest-log (tracking-uuid columns)
-  "Get the most recent log for TRACKING-UUID.
-
-TRACKING-UUID - parent tracking record identifier
-COLUMNS - list of columns to select
-
-Returns a plist with :columns and :row, ordered by started-at descending."
+(defun crt:db-run-sql (sqls)
+  ""
   (let ((db (emacsql-sqlite-open calibredb-db-dir))
-        (sql))
-    (setq sql (daily-db--select-sql-exp
-               :columns columns
-               :table 'reading-logs
-               :clauses `(= tracking-uuid ,tracking-uuid)
-               :limit 1
-               :order 'started-at
-               :desc t))
-    (list :columns columns
-          :row (car (emacsql db sql)))))
+        (result))
+    (emacsql-with-transaction db
+      (dolist (sql sqls)
+        ;; (print sql)
+        (setq result (emacsql db sql))))
+    result))
 
-(defun crt:db-trackings (columns)
-  "Get all tracking records ordered by started-at descending.
+(defun crt:db-total-changes-sql ()
+  [:select (funcall total_changes)])
 
-COLUMNS - list of columns to select
-
-Returns a plist with :columns and :rows (list of all tracking records)."
-  (let ((db (emacsql-sqlite-open calibredb-db-dir))
-        (sql))
-    (setq sql (daily-db--select-sql-exp
-               :columns columns
-               :table 'reading-tracking
-               :order 'started-at
-               :desc t))
-    (list :columns columns
-          :rows (emacsql db sql))))
-
-(defun crt:db-logs (tracking-uuid columns)
-  "Get all logs for TRACKING-UUID.
-
-TRACKING-UUID - parent tracking record identifier
-COLUMNS - list of columns to select
-
-Returns a plist with :columns and :rows (list of all logs),
-ordered by started-at descending (most recent first)."
-  (let ((db (emacsql-sqlite-open calibredb-db-dir))
-        (sql))
-    (setq sql (daily-db--select-sql-exp
-               :columns columns
-               :table 'reading-logs
-               :clauses `(= tracking-uuid ,tracking-uuid)
-               :order 'started-at
-               :desc t))
-    (list :columns columns
-          :rows (emacsql db sql))))
+(defun crt:db-init-tables ()
+  (interactive)
+  (crt:db-run-sql
+   (list (crt:db-create-table-sql (crt:entity-tracking))
+         (crt:db-create-table-sql (crt:entity-log)))))
 
 (provide 'calibredb-reading-tracking-db)
 ;;; calibredb-reading-tracking-db.el ends here

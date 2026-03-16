@@ -68,22 +68,27 @@ with a message when a condition is not met."
   nil)
 
 (defun crt:duration (start finish)
-  "Compute the duration between START and FINISH time strings.
+  ""
+  (time-subtract finish start))
 
-START and FINISH are time strings parseable by `parse-time-string'.
-Returns a time value suitable for `time-subtract' results."
-  (let* ((start-time (parse-time-string start))
-         (finish-time (parse-time-string finish)))
-    (time-subtract finish-time start-time)))
+(defun crt:current-time ()
+  ""
+  (floor (float-time)))
 
 (defun crt:duration-min (start finish)
-  "Compute the duration in minutes between START and FINISH time strings.
-
-START and FINISH are time strings parseable by `parse-time-string'.
-Returns the total duration as an integer number of minutes."
+  ""
   (let* ((duration (crt:duration start finish)))
-    (+ (nth 1 duration)
-       (* 60 (nth 2 duration)))))
+    (/ duration 60)))
+
+(defun crt:format-time (time)
+  (when time
+   (substring (format-time-string crt:time-format time) 2)))
+
+(defun crt:parse-time-string (time-str)
+  (floor (float-time (date-to-time time-str))))
+
+(defun crt:full-name (table column)
+  (intern (format "%s:%s" table column)))
 
 (provide 'calibredb-reading-tracking-utils)
 ;;; calibredb-reading-tracking-utils.el ends here
