@@ -21,7 +21,6 @@ This is an Emacs Lisp package for tracking reading progress of books managed by 
 calibredb-reading-tracking.el       ; Main entry point, interactive commands (start/finish/toggle log)
 calibredb-reading-tracking-obj.el   ; EIEIO classes: crt:book, crt:tracking, crt:log
 calibredb-reading-tracking-db.el    ; SQLite database layer with EmacSQL
-calibredb-reading-tracking-epub.el  ; EPUB-specific book handling
 calibredb-reading-tracking-utils.el ; Utility functions (UUID generation, duration computation)
 ```
 
@@ -29,7 +28,6 @@ calibredb-reading-tracking-utils.el ; Utility functions (UUID generation, durati
 
 ```
 calibredb-reading-tracking.el
-  └─ calibredb-reading-tracking-epub.el
        └─ calibredb-reading-tracking-obj.el
             └─ calibredb-reading-tracking-db.el
                  └─ calibredb, emacsql, emacsql-sqlite

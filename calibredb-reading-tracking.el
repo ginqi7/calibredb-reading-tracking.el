@@ -23,7 +23,7 @@
 ;;
 
 ;;; Code:
-(require 'calibredb-reading-tracking-epub)
+(require 'calibredb-reading-tracking-parser)
 (require 'calibredb-reading-tracking-ctable)
 (require 'calibredb-reading-tracking-db)
 
