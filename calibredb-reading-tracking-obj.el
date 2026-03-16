@@ -24,6 +24,7 @@
 
 ;;; Code:
 (require 'eieio)
+
 (require 'calibredb-reading-tracking-utils)
 ;;; Class Definitions
 (defclass crt:obj ()

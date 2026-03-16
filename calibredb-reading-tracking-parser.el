@@ -24,6 +24,8 @@
 
 ;;; Code:
 
+(require 'eieio)
+
 (defcustom crt:epub-page-rexp "<\\([0-9]+\\)/\\([0-9]+\\)> \\([0-9]+\\)/\\([0-9]+\\)"
   "")
 
