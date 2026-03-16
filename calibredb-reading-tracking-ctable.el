@@ -152,8 +152,8 @@ to get the tracking UUID."
          (log (car (last row)))
          (started-at (crt:parse-time-string (read-string "started at: " (format-time-string crt:time-format))))
          (finished-at (crt:parse-time-string (read-string "finished at: " (format-time-string crt:time-format))))
-         (page-from (read-string "Page from: "))
-         (page-to (read-string "Page to: ")))
+         (page-from (string-to-number (read-string "Page from: ")))
+         (page-to (string-to-number (read-string "Page to: "))))
     (crt:add-or-update (crt:entity-substitute-columns
                         (crt:entity-log)
                         (list (crt:column-tracking-uuid :value (crt:entity-column-value log crt:column-tracking-uuid))
