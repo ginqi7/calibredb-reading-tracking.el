@@ -28,7 +28,7 @@
   "Return string with random (version 4) UUID."
   (let ((rnd (md5 (format "%s%s%s%s%s%s%s"
                    (random)
-                   (org-time-convert-to-list nil)
+                   (current-time)
                    (user-uid)
                    (emacs-pid)
                    (user-full-name)
