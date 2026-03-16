@@ -95,12 +95,24 @@ buffer with click hooks for interactive actions."
      (setq-local buffer-read-only t)
      (switch-to-buffer (current-buffer)))))
 
-(defun crt:ctable-list-logs (tracking-uuid)
+(defun crt:ctable-list-logs (tracking-uuid &optional header-line)
   "Display logs for TRACKING-UUID.
 
 Renders a table of all reading logs associated with the specified
 tracking record."
-  (crt:ctable-render-list (crt:logs tracking-uuid)))
+  (let ((log (crt:entity-log
+              :columns
+              (list
+               (crt:column-uuid)
+               (crt:column-started-at)
+               (crt:column-finished-at)
+               (crt:column-page-from)
+               (crt:column-page-to)
+               (crt:column-tracking-uuid
+                :where '=
+                :value tracking-uuid)
+               (crt:column-duration)))))
+   (crt:ctable-render-list (crt:query log) (when header-line (format "Book: %s" header-line)))))
 
 ;;; Ctable Actions
 (defun crt:ctable-tracking-action-list-logs ()
@@ -113,20 +125,8 @@ renders its logs in a new table buffer."
   (let* ((cp (ctbl:cp-get-component))
          (row (ctbl:cp-get-selected-data-row cp))
          (tracking (car (last row)))
-         (tracking-uuid (crt:entity-column-value tracking crt:column-uuid))
-         (log (crt:entity-log
-               :columns
-               (list
-                (crt:column-uuid)
-                (crt:column-started-at)
-                (crt:column-finished-at)
-                (crt:column-page-from)
-                (crt:column-page-to)
-                (crt:column-tracking-uuid
-                 :where '=
-                 :value tracking-uuid)
-                (crt:column-duration)))))
-    (crt:ctable-render-list (crt:query log) (format "Book: %s" (crt:entity-column-value tracking crt:column-book-title)))))
+         (tracking-uuid (crt:entity-column-value tracking crt:column-uuid)))
+    (crt:ctable-list-logs tracking-uuid (crt:entity-column-value tracking crt:column-book-title))))
 
 (defun crt:ctable-log-action-refresh ()
   "Refresh the log table by re-fetching logs for the selected log's tracking.
@@ -138,7 +138,7 @@ log list."
   (let* ((cp (ctbl:cp-get-component))
          (row (ctbl:cp-get-selected-data-row cp))
          (log (car (last row))))
-    (crt:ctable-list-logs (crt:log-tracking-uuid log))))
+    (crt:ctable-list-logs (crt:entity-column-value log crt:column-tracking-uuid))))
 
 (defun crt:ctable-log-action-add ()
   "Add a new reading log for the selected tracking record.
@@ -150,16 +150,18 @@ to get the tracking UUID."
   (let* ((cp (ctbl:cp-get-component))
          (row (ctbl:cp-get-selected-data-row cp))
          (log (car (last row)))
-         (started-at (crt:parse-time-string (read-string "started at: " (crt:current-time))))
-         (finished-at (crt:parse-time-string (read-string "finished at: " (crt:current-time))))
+         (started-at (crt:parse-time-string (read-string "started at: " (format-time-string crt:time-format))))
+         (finished-at (crt:parse-time-string (read-string "finished at: " (format-time-string crt:time-format))))
          (page-from (read-string "Page from: "))
          (page-to (read-string "Page to: ")))
-    (crt:obj-add-or-update (crt:log
-                            :tracking-uuid (crt:log-tracking-uuid log)
-                            :started-at started-at
-                            :finished-at finished-at
-                            :page-from page-from
-                            :page-to page-to))))
+    (crt:add-or-update (crt:entity-substitute-columns
+                        (crt:entity-log)
+                        (list (crt:column-tracking-uuid :value (crt:entity-column-value log crt:column-tracking-uuid))
+                              (crt:column-started-at :value started-at)
+                              (crt:column-finished-at :value finished-at)
+                              (crt:column-page-from :value page-from)
+                              (crt:column-page-to :value page-to))))
+    (crt:ctable-log-action-refresh)))
 
 (transient-define-prefix crt:ctable-tracking-actions ()
   "Transient menu for tracking table actions.

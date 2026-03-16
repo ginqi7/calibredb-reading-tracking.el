@@ -168,7 +168,7 @@ sessions."
               :where '=
               :value (crt:entity-column-value tracking crt:column-uuid))))))))
 
-(crt:query (crt:entity-tracking))
+;; (crt:query (crt:entity-tracking))
 
 (defun crt:init ()
   "Initialize the reading tracking database.
