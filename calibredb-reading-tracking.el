@@ -35,7 +35,7 @@ stored in the database.")
 
 ;;; API Functions
 (cl-defmethod crt:add-or-update ((entity crt:entity))
-  (when (< 0 (caar (crt:db-run-sql (list (crt:entity-insert-or-update-sql entity)
+  (when (< 0 (caar (crt:db-run-sql (list (crt:db-insert-or-update-sql entity)
                                          (crt:db-total-changes-sql)))))
     entity))
 
