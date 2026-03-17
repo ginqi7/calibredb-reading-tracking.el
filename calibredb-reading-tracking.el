@@ -46,7 +46,7 @@ stored in the database.")
 
 (cl-defmethod crt:query ((entity crt:entity))
   (let* ((result))
-    (setq result (crt:db-run-sql (list (crt:entity-query-sql entity))))
+    (setq result (crt:db-run-sql (list (crt:db-query-sql entity))))
     ;; (print result)
     (crt:entity-build-list entity result)))
 
