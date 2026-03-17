@@ -199,6 +199,29 @@
                           (eieio-oset db-column 'external t)
                           db-column))))))
 
+(cl-defmethod crt:column-format ((obj crt:column))
+  (when (eieio-oref obj 'value)
+    (format "%s" (eieio-oref obj 'value))))
+
+(cl-defmethod crt:column-format ((obj crt:column-duration))
+  (when (eieio-oref obj 'value)
+    (format "%s" (/ (eieio-oref obj 'value) 60))))
+
+(cl-defmethod crt:column-format ((obj crt:column-started-at))
+  (when (eieio-oref obj 'value)
+    (format "%s" (crt:format-time (eieio-oref obj 'value)))))
+
+(cl-defmethod crt:column-format ((obj crt:column-finished-at))
+  (when (eieio-oref obj 'value)
+    (format "%s" (crt:format-time (eieio-oref obj 'value)))))
+
+(cl-defmethod crt:column-format ((obj crt:column-status))
+  (when (eieio-oref obj 'value)
+    (format "%s" (pcase (eieio-oref obj 'value)
+                   (0 "Reading")
+                   (1 "Finished")
+                   (2 "Aborted")))))
+
 ;; API Functions
 (cl-defmethod crt:column-db-column-name ((obj crt:column))
   (eieio-oref (eieio-oref obj 'db-column) 'column))
