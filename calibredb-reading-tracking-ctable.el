@@ -87,13 +87,13 @@ buffer with click hooks for interactive actions."
               (model (make-ctbl:model :column-model column-model :data data)))
     (with-current-buffer (crt:ctable-list-buffer obj)
       (when header-line
-       (setq-local header-line-format header-line))
+        (setq-local header-line-format header-line))
       (let ((inhibit-read-only t))
         (erase-buffer)
+        (switch-to-buffer (current-buffer))
         (setq component (ctbl:create-table-component-region :model model))
-        (ctbl:cp-add-click-hook component (lambda () (crt:ctable-actions obj))))
-     (setq-local buffer-read-only t)
-     (switch-to-buffer (current-buffer)))))
+        (ctbl:cp-add-click-hook component (lambda () (crt:ctable-actions obj)))
+        (setq-local buffer-read-only t)))))
 
 (defun crt:ctable-list-logs (tracking-uuid &optional header-line)
   "Display logs for TRACKING-UUID.
