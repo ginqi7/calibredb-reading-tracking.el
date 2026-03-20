@@ -171,7 +171,8 @@ sessions."
        (crt:entity-log)
        (list (crt:column-tracking-uuid
               :where '=
-              :value (crt:entity-column-value tracking crt:column-uuid))))))))
+              :value (crt:entity-column-value tracking crt:column-uuid)))))
+     (format "Book: %s" (crt:entity-column-value tracking crt:column-book-title)))))
 
 ;; (crt:query (crt:entity-tracking))
 

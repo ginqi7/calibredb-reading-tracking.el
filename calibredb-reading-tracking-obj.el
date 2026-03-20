@@ -149,6 +149,11 @@
                          :column '(funcall printf "%s" books:title)
                          :external t))))
 
+(defclass crt:column-book-path (crt:column)
+  ((db-column :initform (crt:db-column
+                         :column '(funcall printf "%s" books:path)
+                         :external t))))
+
 (defclass crt:column-book-author (crt:column)
   ((ctable-column :initform (crt:ctable-column :title "Author"))
    (db-column :initform (crt:db-column
@@ -186,6 +191,7 @@
                        (crt:column-book-id)
                        (crt:column-book-title)
                        (crt:column-book-author)
+                       (crt:column-book-path)
                        (crt:column-status)
                        (crt:column-page)
                        (crt:column-total-pages)
