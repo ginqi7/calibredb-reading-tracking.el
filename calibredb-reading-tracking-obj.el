@@ -98,7 +98,7 @@
 (defclass crt:column-tracking-uuid (crt:column)
   ((db-column :initform (crt:db-column
                           :column 'tracking-uuid
-                          :type 'integer
+                          :type 'text
                           :not-null t
                           :foreign-key t
                           :reference-table 'reading-tracking
