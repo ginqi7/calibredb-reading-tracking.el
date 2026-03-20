@@ -179,15 +179,20 @@
              (crt:column-tracking-uuid)
              (crt:column-duration)))))
 
+(cl-defmethod crt:obj-nest-update ((obj crt:obj) key &optional key-values)
+  (let ((property (eieio-oref obj key)))
+    (dolist (key-value key-values)
+      (eieio-oset property (car key-value) (cdr key-value)))
+    (eieio-oset obj key property)
+    obj))
+
 (defclass crt:entity-tracking (crt:entity)
   ((table-name :initform reading-tracking)
    (columns :initform (list
-                       (crt:column-uuid
-                        :db-column
-                        (let ((db-column (eieio-oref (crt:column-uuid) 'db-column)))
-                          (eieio-oset db-column 'reference-table 'reading-logs)
-                          (eieio-oset db-column 'reference-column 'tracking-uuid)
-                          db-column))
+                       (crt:obj-nest-update (crt:column-uuid)
+                                            'db-column
+                                            '((reference-table . reading-logs)
+                                              (reference-column . tracking-uuid)))
                        (crt:column-book-id)
                        (crt:column-book-title)
                        (crt:column-book-author)
@@ -198,12 +203,10 @@
                        (crt:column-started-at)
                        (crt:column-finished-at)
                        (crt:column-logs-count)
-                       (crt:column-duration
-                        :db-column
-                        (let ((db-column (eieio-oref (crt:column-uuid) 'db-column)))
-                          (eieio-oset db-column 'column '(funcall sum reading-logs:duration))
-                          (eieio-oset db-column 'external t)
-                          db-column))))))
+                       (crt:obj-nest-update (crt:column-duration)
+                                            'db-column
+                                            '((column . (funcall sum reading-logs:duration))
+                                              (external . t)))))))
 
 (cl-defmethod crt:column-format ((obj crt:column))
   (when (eieio-oref obj 'value)
