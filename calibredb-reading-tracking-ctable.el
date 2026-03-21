@@ -104,10 +104,14 @@ tracking record."
               :columns
               (list
                (crt:column-uuid)
-               (crt:column-started-at)
-               (crt:column-finished-at)
+               (crt:column-started-at
+                :ctable-column nil)
+               (crt:column-finished-at
+                :ctable-column nil)
+               (crt:column-time-range)
                (crt:column-page-from)
                (crt:column-page-to)
+               (crt:column-page-count)
                (crt:column-tracking-uuid
                 :where '=
                 :value tracking-uuid)

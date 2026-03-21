@@ -208,5 +208,6 @@
    (list (crt:db-create-table-sql (crt:entity-tracking))
          (crt:db-create-table-sql (crt:entity-log)))))
 
+;; (crt:db-query-sql (crt:entity-log))
 (provide 'calibredb-reading-tracking-db)
 ;;; calibredb-reading-tracking-db.el ends here

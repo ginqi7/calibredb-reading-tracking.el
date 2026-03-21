@@ -50,7 +50,7 @@
 
 (defclass crt:ctable-column (crt:obj)
   ((title :initarg :title :initform nil)
-   (align :initarg :align :initform 'left)))
+   (align :initarg :align :initform 'right)))
 
 (defclass crt:column (crt:obj)
   ((db-column :initarg :db-column :initform (crt:db-column) :reader crt:column-db-column)
@@ -82,18 +82,30 @@
                           :column 'finished-at
                           :type 'integer))))
 
+(defclass crt:column-time-range (crt:column)
+  ((ctable-column :initform (crt:ctable-column :title "Time[from -> to]"))
+   (db-column :initform (crt:db-column
+                         :column '(funcall printf "%s:%s" reading-logs:started-at reading-logs:finished-at)
+                         :external t))))
+
 (defclass crt:column-page-from (crt:column)
-  ((ctable-column :initform (crt:ctable-column :title "Page From"))
+  ((ctable-column :initform (crt:ctable-column :title "From"))
    (value :initform 0)
    (db-column :initform (crt:db-column
                           :column 'page-from
                           :type 'integer))))
 
 (defclass crt:column-page-to (crt:column)
-  ((ctable-column :initform (crt:ctable-column :title "Page To"))
+  ((ctable-column :initform (crt:ctable-column :title "To"))
    (db-column :initform (crt:db-column
                           :column 'page-to
                           :type 'integer))))
+
+(defclass crt:column-page-count (crt:column)
+  ((ctable-column :initform (crt:ctable-column :title "Count"))
+   (db-column :initform (crt:db-column
+                          :column '(- reading-logs:page-to reading-logs:page-from)
+                          :external t))))
 
 (defclass crt:column-tracking-uuid (crt:column)
   ((db-column :initform (crt:db-column
@@ -176,6 +188,7 @@
              (crt:column-finished-at)
              (crt:column-page-from)
              (crt:column-page-to)
+             (crt:column-page-count)
              (crt:column-tracking-uuid)
              (crt:column-duration)))))
 
@@ -214,7 +227,12 @@
 
 (cl-defmethod crt:column-format ((obj crt:column-duration))
   (when (eieio-oref obj 'value)
-    (format "%s" (/ (eieio-oref obj 'value) 60))))
+    (let* ((value (eieio-oref obj 'value))
+           (hours (/ value 3600))
+           (minutes (/ (- value (* hours 3600)) 60)))
+      (if (> hours 0)
+          (format "%sh%sm" hours minutes)
+        (format "%sm" minutes)))))
 
 (cl-defmethod crt:column-format ((obj crt:column-started-at))
   (when (eieio-oref obj 'value)
@@ -223,6 +241,16 @@
 (cl-defmethod crt:column-format ((obj crt:column-finished-at))
   (when (eieio-oref obj 'value)
     (format "%s" (crt:format-time (eieio-oref obj 'value)))))
+
+(cl-defmethod crt:column-format ((obj crt:column-time-range))
+  (when (eieio-oref obj 'value)
+    (let* ((value (eieio-oref obj 'value))
+           (started (string-to-number (car (split-string value ":"))))
+           (finished (string-to-number (cadr (split-string value ":"))))
+           (day (substring (format-time-string "%Y-%m-%d" started) 2))
+           (started-str (format-time-string "%H:%M" started))
+           (finished-str (format-time-string "%H:%M" finished)))
+      (format "%s [%s -> %s]" day started-str finished-str))))
 
 (cl-defmethod crt:column-format ((obj crt:column-status))
   (when (eieio-oref obj 'value)
