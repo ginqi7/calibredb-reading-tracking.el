@@ -122,6 +122,16 @@ buffer with click hooks for interactive actions."
                             :header-line
                             (crt:ctable-header-line-format tracking))))
 
+(defun crt:tracking-open-book (tracking)
+  (when-let* ((path (file-name-concat calibredb-root-dir
+                                      (crt:entity-column-value tracking crt:column-book-path)))
+              (files (directory-files path t))
+              (book-path (find-if (lambda (file)
+                                    (member (downcase (or (file-name-extension file) ""))
+                                            '("epub" "mobi" "azw" "azw3" "kfx" "pdf" "djvu" "fb2" "cbz" "cbr")))
+                                  files)))
+    (find-file book-path)))
+
 ;;; Ctable Actions
 (defun crt:ctable-tracking-action-list-logs ()
   "Display logs for the selected tracking row.
@@ -146,6 +156,16 @@ log list."
          (row (ctbl:cp-get-selected-data-row cp))
          (log (car (last row))))
     (crt:ctable-list-logs (eieio-oref log 'tracking))))
+
+(defun crt:ctable-open-book ()
+  (interactive)
+  (let* ((cp (ctbl:cp-get-component))
+         (row (ctbl:cp-get-selected-data-row cp))
+         (entity (car (last row))))
+    (when (crt:entity-log-p entity)
+      (setq entity (eieio-oref entity 'tracking)))
+    (when (crt:entity-tracking-p entity)
+      (crt:tracking-open-book entity))))
 
 (defun crt:ctable-log-action-add ()
   "Add a new reading log for the selected tracking record.
@@ -185,7 +205,8 @@ to get the tracking UUID."
 
 Provides commands available when selecting a tracking row."
   ["Tracking Actions"
-   ("RET" "List Logs" crt:ctable-tracking-action-list-logs)])
+   ("RET" "List Logs" crt:ctable-tracking-action-list-logs)
+   ("o" "Open Book" crt:ctable-open-book)])
 
 (transient-define-prefix crt:ctable-log-actions ()
   "Transient menu for log table actions.
@@ -194,6 +215,7 @@ Provides commands available when selecting a log row."
   ["Log Actions"
    ("a" "Add" crt:ctable-log-action-add)
    ("d" "Delete" crt:ctable-log-action-delete)
+   ("o" "Open Book" crt:ctable-open-book)
    ("r" "Refresh" crt:ctable-log-action-refresh)])
 
 (provide 'calibredb-reading-tracking-ctable)
