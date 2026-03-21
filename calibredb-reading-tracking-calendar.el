@@ -87,7 +87,15 @@ to dark green (9+ logs)."
    (dolist (date (hash-table-keys table))
      (let* ((count (length (gethash date table)))
             (face (crt:calendar-marker count)))
-       (calendar-mark-visible-date (crt:calendar--parse-date date) face)))))
+       (calendar-mark-visible-date (crt:calendar--parse-date date) face)))
+   (save-excursion
+    (let ((inhibit-read-only t))
+      (goto-char (point-max))
+      (insert "\n\n")
+      (crt:ctable-render-list (crt:query (crt:entity-tracking))
+                              :buffer (current-buffer)
+                              :append-p t))))
+  (delete-other-windows))
 
 (provide 'calibredb-reading-tracking-calendar)
 ;;; calibredb-reading-tracking-calendar.el ends here

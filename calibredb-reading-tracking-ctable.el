@@ -75,7 +75,7 @@ tracking objects in the table."
 
 ;; API Functions
 
-(defun crt:ctable-render-list (lst &optional header-line)
+(cl-defun crt:ctable-render-list (lst &key header-line buffer append-p)
   "Render LST as an interactive table in a dedicated buffer.
 
 LST should be a list of EIEIO objects of the same type.
@@ -85,11 +85,12 @@ buffer with click hooks for interactive actions."
               (column-model (crt:ctable--column-models (remove nil (mapcar (lambda (column) (eieio-oref column 'ctable-column)) (eieio-oref obj 'columns)))))
               (data (crt:ctable--model-data lst))
               (model (make-ctbl:model :column-model column-model :data data)))
-    (with-current-buffer (crt:ctable-list-buffer obj)
+    (with-current-buffer (or buffer (crt:ctable-list-buffer obj))
       (when header-line
         (setq-local header-line-format header-line))
       (let ((inhibit-read-only t))
-        (erase-buffer)
+        (unless append-p
+          (erase-buffer))
         (switch-to-buffer (current-buffer))
         (setq component (ctbl:create-table-component-region :model model))
         (ctbl:cp-add-click-hook component (lambda () (crt:ctable-actions obj)))
@@ -116,7 +117,9 @@ tracking record."
                 :where '=
                 :value tracking-uuid)
                (crt:column-duration)))))
-   (crt:ctable-render-list (crt:query log) (when header-line (format "Book: %s" header-line)))))
+    (crt:ctable-render-list (crt:query log)
+                            :header-line
+                            (when header-line (format "Book: %s" header-line)))))
 
 ;;; Ctable Actions
 (defun crt:ctable-tracking-action-list-logs ()
