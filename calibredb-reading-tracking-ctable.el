@@ -96,12 +96,13 @@ buffer with click hooks for interactive actions."
         (ctbl:cp-add-click-hook component (lambda () (crt:ctable-actions obj)))
         (setq-local buffer-read-only t)))))
 
-(defun crt:ctable-list-logs (tracking-uuid &optional header-line)
-  "Display logs for TRACKING-UUID.
+(defun crt:ctable-header-line-format (tracking)
+  (format "Book: %s" (crt:entity-column-value tracking crt:column-book-title)))
 
-Renders a table of all reading logs associated with the specified
-tracking record."
+(defun crt:ctable-list-logs (tracking)
+  ""
   (let ((log (crt:entity-log
+              :tracking tracking
               :columns
               (list
                (crt:column-uuid)
@@ -115,11 +116,11 @@ tracking record."
                (crt:column-page-count)
                (crt:column-tracking-uuid
                 :where '=
-                :value tracking-uuid)
+                :value (crt:entity-column-value tracking crt:column-uuid))
                (crt:column-duration)))))
     (crt:ctable-render-list (crt:query log)
                             :header-line
-                            (when header-line (format "Book: %s" header-line)))))
+                            (crt:ctable-header-line-format tracking))))
 
 ;;; Ctable Actions
 (defun crt:ctable-tracking-action-list-logs ()
@@ -131,9 +132,8 @@ renders its logs in a new table buffer."
   (interactive)
   (let* ((cp (ctbl:cp-get-component))
          (row (ctbl:cp-get-selected-data-row cp))
-         (tracking (car (last row)))
-         (tracking-uuid (crt:entity-column-value tracking crt:column-uuid)))
-    (crt:ctable-list-logs tracking-uuid (crt:entity-column-value tracking crt:column-book-title))))
+         (tracking (car (last row))))
+    (crt:ctable-list-logs tracking)))
 
 (defun crt:ctable-log-action-refresh ()
   "Refresh the log table by re-fetching logs for the selected log's tracking.
@@ -145,7 +145,7 @@ log list."
   (let* ((cp (ctbl:cp-get-component))
          (row (ctbl:cp-get-selected-data-row cp))
          (log (car (last row))))
-    (crt:ctable-list-logs (crt:entity-column-value log crt:column-tracking-uuid))))
+    (crt:ctable-list-logs (eieio-oref log 'tracking))))
 
 (defun crt:ctable-log-action-add ()
   "Add a new reading log for the selected tracking record.

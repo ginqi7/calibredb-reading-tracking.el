@@ -181,6 +181,7 @@
 
 (defclass crt:entity-log (crt:entity)
   ((table-name :initform reading-logs)
+   (tracking :initform nil :initarg :tracking)
    (columns :initform
             (list
              (crt:column-uuid)

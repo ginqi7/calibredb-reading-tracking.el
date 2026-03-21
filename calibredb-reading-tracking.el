@@ -165,15 +165,7 @@ sessions."
   ""
   (interactive)
   (when-let* ((tracking (or (crt:parse-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name))))))
-    (crt:ctable-render-list
-     (crt:query
-      (crt:entity-substitute-columns
-       (crt:entity-log)
-       (list (crt:column-tracking-uuid
-              :where '=
-              :value (crt:entity-column-value tracking crt:column-uuid)))))
-     :header-line
-     (format "Book: %s" (crt:entity-column-value tracking crt:column-book-title)))))
+    (crt:ctable-list-logs tracking)))
 
 ;; (crt:query (crt:entity-tracking))
 
