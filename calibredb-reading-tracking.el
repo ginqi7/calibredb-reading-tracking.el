@@ -33,6 +33,12 @@
 Passed to `format-time-string' for generating time strings
 stored in the database.")
 
+(defcustom crt:auto-log-leave-threshold 5
+  "Number of consecutive leave detections before auto-finishing a log.
+
+When `crt:auto-log' detects the user has left a book file this many
+times in a row, it automatically finishes the current reading log.")
+
 ;;; API Functions
 (cl-defmethod crt:add-or-update ((entity crt:entity))
   (when (< 0 (caar (crt:db-run-sql (list (crt:db-insert-or-update-sql entity)
@@ -60,16 +66,15 @@ stored in the database.")
 
 (defun crt:parse-buffer ()
   ""
-  (let* ((parser (crt:parser-build))
-         (page-info (crt:parse parser))
-         (tracking (crt:entity-substitute-columns
-                    (crt:entity-tracking)
-                    (list (crt:column-book-id
-                           :value (plist-get page-info :id)
-                           :where '=))))
-         (exist-trackings (crt:query tracking)))
+  (when-let* ((parser (crt:parser-build))
+              (page-info (crt:parse parser))
+              (tracking (crt:entity-substitute-columns
+                         (crt:entity-tracking)
+                         (list (crt:column-book-id
+                                :value (plist-get page-info :id)
+                                :where '=)))))
     ;; (print (plist-get page-info :id))
-    (setq tracking (or (car exist-trackings) tracking))
+    (setq tracking (or (car (crt:query tracking)) tracking))
     (crt:entity-substitute-columns
      tracking
      (list (crt:column-page :value (plist-get page-info :page))
@@ -177,6 +182,64 @@ Creates the necessary SQLite tables (`reading-tracking' and
 the reading tracking features."
   (interactive)
   (crt:db-init-tables))
+
+(defvar crt:current-reading-log nil)
+
+(defvar crt:reading-leave-count 0)
+
+(defvar crt:reading-timer nil)
+
+(defun crt:auto-log ()
+  "Automatically track reading sessions and finish logs when leaving a book.
+
+This function is designed to be called by an idle timer. It:
+- Starts a new log when entering a book file
+- Updates the current log's page position while reading
+- Automatically finishes the log after leaving the book file
+  `crt:auto-log-leave-threshold' consecutive times"
+  (let ((tracking (crt:parse-buffer)))
+    (cond ((and crt:current-reading-log
+                (not tracking)
+                (>= (setq crt:reading-leave-count (1+ crt:reading-leave-count)) crt:auto-log-leave-threshold))
+           ;; 1. Update Finished-at
+           ;; 2. Save to DB
+           ;; 3. clear crt:current-reading-log and crt:reading-leave-count
+           (setq crt:current-reading-log
+                 (crt:entity-substitute-columns
+                  crt:current-reading-log
+                  (list (crt:column-finished-at :value (crt:current-time)))))
+           (message (format "Finished a log: %s" (crt:entity-message (crt:add-or-update crt:current-reading-log))))
+           (setq crt:current-reading-log nil)
+           (setq crt:reading-leave-count 0))
+          ((and (not crt:current-reading-log)
+                tracking)
+           (setq crt:current-reading-log
+                 (crt:entity-substitute-columns
+                  (crt:entity-log
+                   :tracking tracking)
+                  (list (crt:column-tracking-uuid :value (crt:entity-column-value tracking crt:column-uuid))
+                        (crt:column-page-from :value (crt:entity-column-value tracking crt:column-page))
+                        (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page)))))
+           (message (format "Starting a new log: %s" (crt:entity-message crt:current-reading-log))))
+          (tracking
+           (setq crt:current-reading-log
+                 (crt:entity-substitute-columns
+                  crt:current-reading-log
+                  (list (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page)))))
+           (message (format "Update a log: %s" (crt:entity-message crt:current-reading-log)))))))
+
+(defun crt:toggle-timer ()
+  "Toggle the automatic reading session timer on or off.
+
+When enabled, runs `crt:auto-log' every 60 seconds of idle time
+to automatically track reading sessions and finish logs when
+leaving a book file."
+  (interactive)
+  (if crt:reading-timer
+      (when (timerp crt:reading-timer)
+        (cancel-timer crt:reading-timer)
+        (setq crt:reading-timer nil))
+    (setq crt:reading-timer (run-with-idle-timer 60 t #'crt:auto-log))))
 
 (provide 'calibredb-reading-tracking)
 ;;; calibredb-reading-tracking.el ends here
