@@ -38,15 +38,14 @@
          (virtual (crt:db-column-virtual db-column))
          (not-null-p (crt:db-column-not-null-p db-column))
          (primary-key-p (crt:db-column-primary-key-p db-column))
-         (unique-p (crt:db-column-unique-p db-column))
-         (external-p (crt:db-column-external-p db-column)))
-    (unless external-p
-      (remove nil (append (list column
-                                (when type type)
-                                (when primary-key-p :primary-key)
-                                (when unique-p :unique)
-                                (when not-null-p :not-null))
-                          (when virtual (list :generated :always :as virtual :virtual)))))))
+         (unique-p (crt:db-column-unique-p db-column)))
+    (unless (crt:db-column-external-p db-column)
+      (delq nil (append (list column
+                              (when type type)
+                              (when primary-key-p :primary-key)
+                              (when unique-p :unique)
+                              (when not-null-p :not-null))
+                        (when virtual (list :generated :always :as virtual :virtual)))))))
 
 ;; (crt:db--schema (crt:column-uuid))
 
@@ -106,7 +105,8 @@
                     ,(crt:full-name reference-table reference-column)))))
 
 (cl-defmethod crt:entity--join-ons ((obj crt:entity))
-  (when-let* ((external-columns (remove-if-not (lambda (column) (eieio-oref column 'selected)) (remove-if-not #'crt:column-external-p (eieio-oref obj 'columns))))           (reference-columns (remove-if-not #'crt:column-reference-table (eieio-oref obj 'columns)))
+  (when-let* ((external-columns (remove-if-not #'crt:column-selected (remove-if-not #'crt:column-external-p (eieio-oref obj 'columns))))
+              (reference-columns (remove-if-not #'crt:column-reference-table (eieio-oref obj 'columns)))
               (main-table (eieio-oref obj 'table-name))
               (left-joins (mapcar (lambda (column) (crt:db--join-on column main-table)) reference-columns)))
     (when external-columns
@@ -190,7 +190,11 @@
     `[:delete-from ,db-table-name :where (= ,full-name ,value)]))
 
 (defun crt:db-run-sql (sqls)
-  ""
+  "Execute a list of SQLS statements against the CalibreDB database.
+
+Opens a connection to the database, runs all statements within a
+transaction, closes the connection, and returns the result of the
+last statement."
   (let ((db (emacsql-sqlite-open calibredb-db-dir))
         (result))
     (emacsql-with-transaction db

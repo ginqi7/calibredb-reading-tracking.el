@@ -65,7 +65,13 @@ times in a row, it automatically finishes the current reading log.")
          (car (crt:query log)))))
 
 (defun crt:parse-buffer ()
-  ""
+  "Parse the current buffer to extract book page information.
+
+Reads the current buffer using the configured parser to extract
+the book ID, current page, and total pages. Updates or creates
+a tracking record in the database with this information.
+
+Returns the updated tracking object, or nil if parsing fails."
   (when-let* ((parser (crt:parser-build))
               (page-info (crt:parse parser))
               (tracking (crt:entity-substitute-columns
@@ -162,12 +168,19 @@ sessions."
         (crt:start-log tracking exist-log)))))
 
 (defun crt:list-tracking ()
-  ""
+  "Display all reading tracking records in a table buffer.
+
+Queries the database for all tracking records and renders them
+in an interactive table buffer with sorting and action commands."
   (interactive)
   (crt:ctable-render-list (crt:query (crt:entity-tracking))))
 
 (defun crt:list-logs ()
-  ""
+  "Display reading logs for the current book in a table buffer.
+
+Extracts tracking information from the current buffer and displays
+all associated reading logs in an interactive table with filtering
+and action commands."
   (interactive)
   (when-let* ((tracking (or (crt:parse-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name))))))
     (crt:ctable-list-logs tracking)))
