@@ -197,6 +197,7 @@
       (dolist (sql sqls)
         ;; (print sql)
         (setq result (emacsql db sql))))
+    (emacsql-close db)
     result))
 
 (defun crt:db-total-changes-sql ()
