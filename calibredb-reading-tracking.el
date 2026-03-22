@@ -220,12 +220,14 @@ This function is designed to be called by an idle timer. It:
                   (list (crt:column-tracking-uuid :value (crt:entity-column-value tracking crt:column-uuid))
                         (crt:column-page-from :value (crt:entity-column-value tracking crt:column-page))
                         (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page)))))
+           (setq crt:reading-leave-count 0)
            (message (format "Starting a new log: %s" (crt:entity-message crt:current-reading-log))))
           (tracking
            (setq crt:current-reading-log
                  (crt:entity-substitute-columns
                   crt:current-reading-log
                   (list (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page)))))
+           (setq crt:reading-leave-count 0)
            (message (format "Update a log: %s" (crt:entity-message crt:current-reading-log)))))))
 
 (defun crt:toggle-timer ()
