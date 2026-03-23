@@ -214,34 +214,23 @@ This function is designed to be called by an idle timer. It:
     (cond ((and crt:current-reading-log
                 (not tracking)
                 (>= (setq crt:reading-leave-count (1+ crt:reading-leave-count)) crt:auto-log-leave-threshold))
-           ;; 1. Update Finished-at
-           ;; 2. Save to DB
-           ;; 3. clear crt:current-reading-log and crt:reading-leave-count
-           (setq crt:current-reading-log
-                 (crt:entity-substitute-columns
-                  crt:current-reading-log
-                  (list (crt:column-finished-at :value (crt:current-time)))))
+           ;; 1. Save to DB
+           ;; 2. clear crt:current-reading-log and crt:reading-leave-count
            (message (format "Finished a log: %s" (crt:entity-message (crt:add-or-update crt:current-reading-log))))
            (setq crt:current-reading-log nil)
            (setq crt:reading-leave-count 0))
-          ((and (not crt:current-reading-log)
-                tracking)
-           (setq crt:current-reading-log
-                 (crt:entity-substitute-columns
-                  (crt:entity-log
-                   :tracking tracking)
-                  (list (crt:column-tracking-uuid :value (crt:entity-column-value tracking crt:column-uuid))
-                        (crt:column-page-from :value (crt:entity-column-value tracking crt:column-page))
-                        (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page)))))
-           (setq crt:reading-leave-count 0)
-           (message (format "Starting a new log: %s" (crt:entity-message crt:current-reading-log))))
           (tracking
+           (unless crt:current-reading-log
+             (setq crt:current-reading-log (crt:entity-log :tracking tracking)))
            (setq crt:current-reading-log
                  (crt:entity-substitute-columns
                   crt:current-reading-log
-                  (list (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page)))))
+                  (list (crt:column-tracking-uuid :value (crt:entity-column-value tracking crt:column-uuid))
+                        (crt:column-page-from :value (crt:entity-column-value tracking crt:column-page))
+                        (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page))
+                        (crt:column-finished-at :value (crt:current-time)))))
            (setq crt:reading-leave-count 0)
-           (message (format "Update a log: %s" (crt:entity-message crt:current-reading-log)))))))
+           (message (format "A log: %s" (crt:entity-message crt:current-reading-log)))))))
 
 (defun crt:toggle-timer ()
   "Toggle the automatic reading session timer on or off.
@@ -254,6 +243,7 @@ leaving a book file."
       (when (timerp crt:reading-timer)
         (cancel-timer crt:reading-timer)
         (setq crt:reading-timer nil))
+    (crt:auto-log)
     (setq crt:reading-timer (run-with-idle-timer 60 t #'crt:auto-log))))
 
 (provide 'calibredb-reading-tracking)
