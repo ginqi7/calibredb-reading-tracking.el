@@ -62,8 +62,8 @@ Returns a plist with :page and :total-pages."
 
 ;;; API Functions
 (defun crt:parser-build ()
-  (let* ((path (buffer-file-name))
-         (extension (file-name-extension path)))
+  (when-let* ((path (buffer-file-name))
+              (extension (file-name-extension path)))
     (pcase extension
       ("epub" (crt:epub-parser)))))
 
