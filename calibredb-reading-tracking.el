@@ -240,8 +240,11 @@ to automatically track reading sessions and finish logs when
 leaving a book file."
   (interactive)
   (if crt:reading-timer
-      (when (timerp crt:reading-timer)
-        (cancel-timer crt:reading-timer)
+      (progn
+        (when (timerp crt:reading-timer)
+          (cancel-timer crt:reading-timer))
+        (setq crt:current-reading-log nil)
+        (setq crt:reading-leave-count 0)
         (setq crt:reading-timer nil))
     (crt:auto-log)
     (setq crt:reading-timer (run-with-idle-timer 60 t #'crt:auto-log))))
