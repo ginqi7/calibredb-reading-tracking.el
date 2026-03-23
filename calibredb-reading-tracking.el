@@ -221,13 +221,15 @@ This function is designed to be called by an idle timer. It:
            (setq crt:reading-leave-count 0))
           (tracking
            (unless crt:current-reading-log
-             (setq crt:current-reading-log (crt:entity-log :tracking tracking)))
+             (crt:entity-substitute-columns
+              (crt:entity-log
+               :tracking tracking)
+              (list (crt:column-tracking-uuid :value (crt:entity-column-value tracking crt:column-uuid))
+                    (crt:column-page-from :value (crt:entity-column-value tracking crt:column-page)))))
            (setq crt:current-reading-log
                  (crt:entity-substitute-columns
                   crt:current-reading-log
-                  (list (crt:column-tracking-uuid :value (crt:entity-column-value tracking crt:column-uuid))
-                        (crt:column-page-from :value (crt:entity-column-value tracking crt:column-page))
-                        (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page))
+                  (list (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page))
                         (crt:column-finished-at :value (crt:current-time)))))
            (setq crt:reading-leave-count 0)
            (message (format "A log: %s" (crt:entity-message crt:current-reading-log)))))))
@@ -247,7 +249,7 @@ leaving a book file."
         (setq crt:reading-leave-count 0)
         (setq crt:reading-timer nil))
     (crt:auto-log)
-    (setq crt:reading-timer (run-with-idle-timer 60 t #'crt:auto-log))))
+    (setq crt:reading-timer (run-with-timer 60 t #'crt:auto-log))))
 
 (provide 'calibredb-reading-tracking)
 ;;; calibredb-reading-tracking.el ends here
