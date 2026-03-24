@@ -26,6 +26,9 @@
 
 (require 'calibredb-reading-tracking-obj)
 (require 'transient)
+
+(defcustom crt:date-filter nil "")
+
 ;; Internal Functions
 
 (cl-defmethod crt:ctable--column-model ((obj crt:ctable-column))
@@ -100,12 +103,34 @@ buffer with click hooks for interactive actions."
   (let* ((page-count (- (crt:entity-column-value (car logs) crt:column-page-from)
                         (crt:entity-column-value (car (last logs)) crt:column-page-to)))
          (sum-duration (apply #'+ (mapcar (lambda (log) (crt:entity-column-value log crt:column-duration)) logs))))
-   (format "Book: %s, Page Count: %s, Time Count: %s"
+   (format "Book: %s, Page Count: %s, Time Count: %s, Date Filter: %s"
            (crt:entity-column-value tracking crt:column-book-title)
            page-count
            (if (< sum-duration 3600)
                (format "%sm" (/ sum-duration 60))
-             (format "%sh%sm" (/ sum-duration 3600) (/ (% sum-duration 3600) 60))))))
+             (format "%sh%sm" (/ sum-duration 3600) (/ (% sum-duration 3600) 60)))
+           (when crt:date-filter
+             (format "[%s -> %s]"
+                     (crt:format-time (car crt:date-filter))
+                     (crt:format-time (cadr crt:date-filter)))))))
+
+(defun crt:ctable-set-date-filter ()
+  "Set date filter for reading logs table using a calendar interface.
+
+Prompts for start and end dates interactively, then sets `crt:date-filter'
+which is used by `crt:ctable-list-logs' to filter displayed logs."
+  (interactive)
+  (let ((start-date (calendar-date-string (calendar-read-date))))
+    (if (string-empty-p start-date)
+        (progn
+          (setq crt:date-filter nil)
+          (message "Date filter cleared"))
+      (let* ((end-date (calendar-date-string (calendar-read-date)))
+             (start-time (crt:parse-time-string (format "%s 00:00:00" start-date)))
+             (end-time (crt:parse-time-string (format "%s 23:59:59" end-date))))
+        (setq crt:date-filter (list start-time end-time))
+        (message "Date filter set: %s to %s" start-date end-date)))
+    (crt:ctable-log-action-refresh)))
 
 (defun crt:ctable-list-logs (tracking)
   ""
@@ -126,6 +151,19 @@ buffer with click hooks for interactive actions."
                  :where '=
                  :value (crt:entity-column-value tracking crt:column-uuid))
                 (crt:column-duration))))
+         (log (if crt:date-filter
+                  (crt:entity-substitute-columns
+                   log
+                   (list
+                    (crt:column-started-at
+                     :ctable-column nil
+                     :where '>=
+                     :value (nth 0 crt:date-filter))
+                    (crt:column-finished-at
+                     :ctable-column nil
+                     :where '<
+                     :value (nth 1 crt:date-filter))))
+                log))
          (logs (crt:query log)))
     (crt:ctable-render-list logs
                             :header-line
@@ -224,6 +262,7 @@ Provides commands available when selecting a log row."
   ["Log Actions"
    ("a" "Add" crt:ctable-log-action-add)
    ("d" "Delete" crt:ctable-log-action-delete)
+   ("f" "Filter by Date" crt:ctable-set-date-filter)
    ("o" "Open Book" crt:ctable-open-book)
    ("r" "Refresh" crt:ctable-log-action-refresh)])
 

@@ -70,10 +70,10 @@
 
 ;; (crt:db--column-full-name (crt:column-uuid) 'reading-logs)
 
-(cl-defmethod crt:db--column-where ((obj crt:column))
+(cl-defmethod crt:db--column-where (table-name (obj crt:column))
   (let ((where (eieio-oref obj 'where))
         (value (eieio-oref obj 'value))
-        (column (crt:column-db-column-name obj)))
+        (column (crt:full-name table-name (crt:column-db-column-name obj))))
     (list where column value)))
 
 ;; (crt:db--column-where (crt:column-uuid :value "6483c7c1-6d97-484b-887f-67ad2cc63d55" :where '=))
@@ -113,7 +113,9 @@
       (apply #'append left-joins))))
 
 (cl-defmethod crt:db--wheres ((obj crt:entity))
-  (when-let ((wheres (mapcar #'crt:db--column-where (remove-if-not #'crt:column-where (eieio-oref obj 'columns)))))
+  (when-let* ((table-name (eieio-oref obj 'table-name))
+              (wheres (mapcar (apply-partially #'crt:db--column-where table-name)
+                              (remove-if-not #'crt:column-where (eieio-oref obj 'columns)))))
     (list :where (append '(and (= 1 1)) wheres))))
 
 (cl-defmethod crt:db--group-by ((obj crt:entity))
