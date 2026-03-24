@@ -83,6 +83,7 @@ The heatmap uses 5 intensity levels from light gray (no activity)
 to dark green (9+ logs)."
   (interactive)
   (calendar)
+  (use-local-map (make-sparse-keymap))
   (let ((table (crt:calendar-logs-group-by-day)))
    (dolist (date (hash-table-keys table))
      (let* ((count (length (gethash date table)))

@@ -96,31 +96,40 @@ buffer with click hooks for interactive actions."
         (ctbl:cp-add-click-hook component (lambda () (crt:ctable-actions obj)))
         (setq-local buffer-read-only t)))))
 
-(defun crt:ctable-header-line-format (tracking)
-  (format "Book: %s" (crt:entity-column-value tracking crt:column-book-title)))
+(defun crt:ctable-header-line-format (tracking logs)
+  (let* ((page-count (- (crt:entity-column-value (car logs) crt:column-page-from)
+                        (crt:entity-column-value (car (last logs)) crt:column-page-to)))
+         (sum-duration (apply #'+ (mapcar (lambda (log) (crt:entity-column-value log crt:column-duration)) logs))))
+   (format "Book: %s, Page Count: %s, Time Count: %s"
+           (crt:entity-column-value tracking crt:column-book-title)
+           page-count
+           (if (< sum-duration 3600)
+               (format "%sm" (/ sum-duration 60))
+             (format "%sh%sm" (/ sum-duration 3600) (/ (% sum-duration 3600) 60))))))
 
 (defun crt:ctable-list-logs (tracking)
   ""
-  (let ((log (crt:entity-log
-              :tracking tracking
-              :columns
-              (list
-               (crt:column-uuid)
-               (crt:column-started-at
-                :ctable-column nil)
-               (crt:column-finished-at
-                :ctable-column nil)
-               (crt:column-time-range)
-               (crt:column-page-from)
-               (crt:column-page-to)
-               (crt:column-page-count)
-               (crt:column-tracking-uuid
-                :where '=
-                :value (crt:entity-column-value tracking crt:column-uuid))
-               (crt:column-duration)))))
-    (crt:ctable-render-list (crt:query log)
+  (let* ((log (crt:entity-log
+               :tracking tracking
+               :columns
+               (list
+                (crt:column-uuid)
+                (crt:column-started-at
+                 :ctable-column nil)
+                (crt:column-finished-at
+                 :ctable-column nil)
+                (crt:column-time-range)
+                (crt:column-page-from)
+                (crt:column-page-to)
+                (crt:column-page-count)
+                (crt:column-tracking-uuid
+                 :where '=
+                 :value (crt:entity-column-value tracking crt:column-uuid))
+                (crt:column-duration))))
+         (logs (crt:query log)))
+    (crt:ctable-render-list logs
                             :header-line
-                            (crt:ctable-header-line-format tracking))))
+                            (crt:ctable-header-line-format tracking logs))))
 
 (defun crt:tracking-open-book (tracking)
   (when-let* ((path (file-name-concat calibredb-root-dir
