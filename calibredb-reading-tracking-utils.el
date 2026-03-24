@@ -82,7 +82,7 @@ with a message when a condition is not met."
 
 (defun crt:format-time (time)
   (when time
-   (substring (format-time-string crt:time-format time) 2)))
+   (format-time-string crt:time-format time)))
 
 (defun crt:parse-time-string (time-str)
   (floor (float-time (date-to-time time-str))))

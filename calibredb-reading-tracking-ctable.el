@@ -120,16 +120,16 @@ buffer with click hooks for interactive actions."
 Prompts for start and end dates interactively, then sets `crt:date-filter'
 which is used by `crt:ctable-list-logs' to filter displayed logs."
   (interactive)
-  (let ((start-date (calendar-date-string (calendar-read-date))))
-    (if (string-empty-p start-date)
+  (let ((start-str (read-string "Started Date: " (or (crt:format-time (car crt:date-filter))
+                                                     (format "%s 00:00" (format-time-string "%Y-%m-%d")))))
+        (finished-str (read-string "Finished Date: " (or (crt:format-time (cadr crt:date-filter))
+                                                         (format "%s 23:59"(format-time-string "%Y-%m-%d"))))))
+    (if (string-empty-p start-str)
         (progn
           (setq crt:date-filter nil)
           (message "Date filter cleared"))
-      (let* ((end-date (calendar-date-string (calendar-read-date)))
-             (start-time (crt:parse-time-string (format "%s 00:00:00" start-date)))
-             (end-time (crt:parse-time-string (format "%s 23:59:59" end-date))))
-        (setq crt:date-filter (list start-time end-time))
-        (message "Date filter set: %s to %s" start-date end-date)))
+      (setq crt:date-filter (list (crt:parse-time-string start-str) (crt:parse-time-string finished-str)))
+      (message "Date filter set: %s to %s" start-str finished-str))
     (crt:ctable-log-action-refresh)))
 
 (defun crt:ctable-list-logs (tracking)
