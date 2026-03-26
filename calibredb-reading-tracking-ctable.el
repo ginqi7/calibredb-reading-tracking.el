@@ -100,8 +100,8 @@ buffer with click hooks for interactive actions."
         (setq-local buffer-read-only t)))))
 
 (defun crt:ctable-header-line-format (tracking logs)
-  (let* ((page-count (- (crt:entity-column-value (car logs) crt:column-page-from)
-                        (crt:entity-column-value (car (last logs)) crt:column-page-to)))
+  (let* ((page-count (- (crt:entity-column-value (car logs) crt:column-page-to)
+                        (crt:entity-column-value (car (last logs)) crt:column-page-from)))
          (sum-duration (apply #'+ (mapcar (lambda (log) (crt:entity-column-value log crt:column-duration)) logs))))
    (format "Book: %s, Page Count: %s, Time Count: %s, Date Filter: %s"
            (crt:entity-column-value tracking crt:column-book-title)
