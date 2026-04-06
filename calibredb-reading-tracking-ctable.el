@@ -96,6 +96,7 @@ buffer with click hooks for interactive actions."
           (erase-buffer))
         (switch-to-buffer (current-buffer))
         (setq component (ctbl:create-table-component-region :model model))
+        (goto-line 3)
         (ctbl:cp-add-click-hook component (lambda () (crt:ctable-actions obj)))
         (setq-local buffer-read-only t)))))
 
