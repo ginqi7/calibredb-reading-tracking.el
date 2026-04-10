@@ -73,8 +73,45 @@ Returns a hash table where:
         (puthash date-str (cons log (gethash date-str table)) table)))
     table))
 
+(defun crt:calendar-logs-group-by-tracking-uuid (logs)
+  (let ((table (make-hash-table :test 'equal)))
+    (dolist (log logs)
+      (let ((tracking-uuid (crt:entity-column-value log crt:column-tracking-uuid)))
+        (puthash tracking-uuid (cons log (gethash tracking-uuid table)) table)))
+    table))
+
+(defun crt:calendar--insert-tracking-logs (logs)
+  (let ((table (crt:calendar-logs-group-by-tracking-uuid logs)))
+    (dolist (tracking-uuid (hash-table-keys table))
+      (goto-char (point-max))
+      (insert "\n\n")
+      (crt:ctable-render-list (crt:query (crt:entity-substitute-columns
+                                          (crt:entity-tracking)
+                                          (list
+                                           (crt:column-tracking-uuid
+                                            :value tracking-uuid))))
+                              :buffer (current-buffer)
+                              :append-p t)
+      (goto-char (point-max))
+      (insert "\n")
+      (crt:ctable-render-list (gethash tracking-uuid table)
+                              :buffer (current-buffer)
+                              :append-p t))))
+
 ;;; Interactive Commands
-(defun crt:calendar ()
+
+(defun crt:calendar-select-date ()
+  (interactive)
+  (let* ((date (calendar-cursor-to-date))
+         (format-date-str (format-time-string "%Y-%m-%d"
+                                              (encode-time 0 0 0    ; second minute hour
+                                                           (nth 1 date)        ; day
+                                                           (nth 0 date)        ; month
+                                                           (nth 2 date)        ; year
+                                                           nil))))
+    (crt:calendar format-date-str)))
+
+(defun crt:calendar (&optional selected-date)
   "Display a calendar with reading activity heatmap.
 
 Opens the standard Emacs calendar and marks each day with a colored
@@ -82,20 +119,20 @@ face based on the number of reading logs started on that day.
 The heatmap uses 5 intensity levels from light gray (no activity)
 to dark green (9+ logs)."
   (interactive)
+  (unless selected-date
+    (setq selected-date (format-time-string "%Y-%m-%d")))
   (calendar)
-  (use-local-map (make-sparse-keymap))
-  (let ((table (crt:calendar-logs-group-by-day)))
-   (dolist (date (hash-table-keys table))
-     (let* ((count (length (gethash date table)))
-            (face (crt:calendar-marker count)))
-       (calendar-mark-visible-date (crt:calendar--parse-date date) face)))
-   (save-excursion
-    (let ((inhibit-read-only t))
-      (goto-char (point-max))
-      (insert "\n\n")
-      (crt:ctable-render-list (crt:query (crt:entity-tracking))
-                              :buffer (current-buffer)
-                              :append-p t))))
+  (let ((table (crt:calendar-logs-group-by-day))
+        (map (make-sparse-keymap)))
+    (define-key map (kbd "<return>") #'crt:calendar-select-date)
+    (use-local-map map)
+    (dolist (date (hash-table-keys table))
+      (let* ((count (length (gethash date table)))
+             (face (crt:calendar-marker count)))
+        (calendar-mark-visible-date (crt:calendar--parse-date date) face)))
+    (save-excursion
+      (let ((inhibit-read-only t))
+       (crt:calendar--insert-tracking-logs (gethash selected-date table)))))
   (delete-other-windows))
 
 (provide 'calibredb-reading-tracking-calendar)
