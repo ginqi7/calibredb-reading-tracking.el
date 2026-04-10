@@ -87,9 +87,8 @@ Returns a hash table where:
       (insert "\n\n")
       (crt:ctable-render-list (crt:query (crt:entity-substitute-columns
                                           (crt:entity-tracking)
-                                          (list
-                                           (crt:column-tracking-uuid
-                                            :value tracking-uuid))))
+                                          (crt:column-tracking-uuid
+                                           :value tracking-uuid)))
                               :buffer (current-buffer)
                               :append-p t)
       (goto-char (point-max))

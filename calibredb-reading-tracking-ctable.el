@@ -155,15 +155,14 @@ which is used by `crt:ctable-list-logs' to filter displayed logs."
          (log (if crt:date-filter
                   (crt:entity-substitute-columns
                    log
-                   (list
-                    (crt:column-started-at
-                     :ctable-column nil
-                     :where '>=
-                     :value (nth 0 crt:date-filter))
-                    (crt:column-finished-at
-                     :ctable-column nil
-                     :where '<
-                     :value (nth 1 crt:date-filter))))
+                   (crt:column-started-at
+                    :ctable-column nil
+                    :where '>=
+                    :value (nth 0 crt:date-filter))
+                   (crt:column-finished-at
+                    :ctable-column nil
+                    :where '<
+                    :value (nth 1 crt:date-filter)))
                 log))
          (logs (crt:query log)))
     (crt:ctable-render-list logs
@@ -175,9 +174,9 @@ which is used by `crt:ctable-list-logs' to filter displayed logs."
                                       (crt:entity-column-value tracking crt:column-book-path)))
               (files (directory-files path t))
               (book-path (cl-find-if (lambda (file)
-                                    (member (downcase (or (file-name-extension file) ""))
-                                            '("epub" "mobi" "azw" "azw3" "kfx" "pdf" "djvu" "fb2" "cbz" "cbr")))
-                                  files)))
+                                       (member (downcase (or (file-name-extension file) ""))
+                                               '("epub" "mobi" "azw" "azw3" "kfx" "pdf" "djvu" "fb2" "cbz" "cbr")))
+                                     files)))
     (find-file book-path)))
 
 ;;; Ctable Actions
@@ -231,11 +230,11 @@ to get the tracking UUID."
          (page-to (string-to-number (read-string "Page to: "))))
     (crt:add-or-update (crt:entity-substitute-columns
                         (crt:entity-log)
-                        (list (crt:column-tracking-uuid :value (crt:entity-column-value log crt:column-tracking-uuid))
-                              (crt:column-started-at :value started-at)
-                              (crt:column-finished-at :value finished-at)
-                              (crt:column-page-from :value page-from)
-                              (crt:column-page-to :value page-to))))
+                        (crt:column-tracking-uuid :value (crt:entity-column-value log crt:column-tracking-uuid))
+                        (crt:column-started-at :value started-at)
+                        (crt:column-finished-at :value finished-at)
+                        (crt:column-page-from :value page-from)
+                        (crt:column-page-to :value page-to)))
     (crt:ctable-log-action-refresh)))
 
 (defun crt:ctable-log-action-delete ()

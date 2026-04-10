@@ -285,7 +285,7 @@
 (cl-defmethod crt:entity-column-value ((obj crt:entity) column-class)
   (eieio-oref (cl-find-if (lambda (column) (same-class-p column column-class)) (eieio-oref obj 'columns)) 'value))
 
-(cl-defmethod crt:entity-substitute-columns ((obj crt:entity) &optional new-columns)
+(cl-defmethod crt:entity-substitute-columns ((obj crt:entity) &rest new-columns)
   (let ((columns (eieio-oref obj 'columns)))
     (dolist (new-column new-columns)
       (setq columns (cl-substitute-if new-column

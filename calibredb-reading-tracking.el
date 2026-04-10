@@ -59,9 +59,9 @@ times in a row, it automatically finishes the current reading log.")
 (defun crt:get-log (tracking-uuid)
   (let* ((log (crt:entity-substitute-columns
                (crt:entity-log)
-               (list (crt:column-tracking-uuid
-                      :where '=
-                      :value tracking-uuid))))
+               (crt:column-tracking-uuid
+                :where '=
+                :value tracking-uuid)))
          (car (crt:query log)))))
 
 (defun crt:parse-buffer ()
@@ -76,15 +76,15 @@ Returns the updated tracking object, or nil if parsing fails."
               (page-info (crt:parse parser))
               (tracking (crt:entity-substitute-columns
                          (crt:entity-tracking)
-                         (list (crt:column-book-id
-                                :value (plist-get page-info :id)
-                                :where '=)))))
+                         (crt:column-book-id
+                          :value (plist-get page-info :id)
+                          :where '=))))
     ;; (print (plist-get page-info :id))
     (setq tracking (or (car (crt:query tracking)) tracking))
     (crt:entity-substitute-columns
      tracking
-     (list (crt:column-page :value (plist-get page-info :page))
-           (crt:column-total-pages :value (plist-get page-info :total-pages))))
+     (crt:column-page :value (plist-get page-info :page))
+     (crt:column-total-pages :value (plist-get page-info :total-pages)))
     ;; (print tracking)
     (crt:add-or-update tracking)))
 
@@ -100,9 +100,9 @@ Requires the buffer to be a book file in CalibreDB format."
   (when-let ((tracking (or tracking (crt:parse-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name))))))
     (let* ((log (crt:entity-substitute-columns
                  (crt:entity-log)
-                 (list (crt:column-tracking-uuid
-                        :where '=
-                        :value (crt:entity-column-value tracking crt:column-uuid)))))
+                 (crt:column-tracking-uuid
+                  :where '=
+                  :value (crt:entity-column-value tracking crt:column-uuid))))
            (exist-log (or exist-log (car (crt:query log)))))
       (if (and exist-log (not (crt:entity-column-value exist-log crt:column-finished-at)))
           ;; Latest log is unfinished.
@@ -113,8 +113,8 @@ Requires the buffer to be a book file in CalibreDB format."
                   (crt:add-or-update
                    (crt:entity-substitute-columns
                     log
-                    (list (crt:column-page-from
-                           :value (crt:entity-column-value tracking crt:column-page))))))))))))
+                    (crt:column-page-from
+                     :value (crt:entity-column-value tracking crt:column-page)))))))))))
 
 (defun crt:finish-log (&optional tracking exist-log)
   "Finish the current reading session log.
@@ -127,9 +127,9 @@ Displays a message if there is no unfinished log to finish."
   (when-let ((tracking (or tracking (crt:parse-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name))))))
     (let* ((log (crt:entity-substitute-columns
                  (crt:entity-log)
-                 (list (crt:column-tracking-uuid
-                        :where '=
-                        :value (crt:entity-column-value tracking crt:column-uuid)))))
+                 (crt:column-tracking-uuid
+                  :where '=
+                  :value (crt:entity-column-value tracking crt:column-uuid))))
            (exist-log (or exist-log (car (crt:query log)))))
       (if (and exist-log (not (crt:entity-column-value exist-log crt:column-finished-at)))
           (if (< (- (crt:current-time) (crt:entity-column-value exist-log crt:column-started-at)) 60)
@@ -141,8 +141,8 @@ Displays a message if there is no unfinished log to finish."
                               (crt:add-or-update
                                (crt:entity-substitute-columns
                                 exist-log
-                                (list (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page))
-                                      (crt:column-finished-at :value (crt:current-time)))))))))
+                                (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page))
+                                (crt:column-finished-at :value (crt:current-time))))))))
         (message "There is not an unfinished log.")))))
 
 (defun crt:toggle-log ()
@@ -158,9 +158,9 @@ sessions."
   (when-let ((tracking (or (crt:parse-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name))))))
     (let* ((log (crt:entity-substitute-columns
                   (crt:entity-log)
-                  (list (crt:column-tracking-uuid
-                         :where '=
-                         :value (crt:entity-column-value tracking crt:column-uuid)))))
+                  (crt:column-tracking-uuid
+                   :where '=
+                   :value (crt:entity-column-value tracking crt:column-uuid))))
            (exist-log (car (crt:query log))))
       (if (and exist-log (not (crt:entity-column-value exist-log crt:column-finished-at)))
           ;; Latest log is unfinished.
@@ -225,13 +225,13 @@ This function is designed to be called by an idle timer. It:
                    (crt:entity-substitute-columns
                     (crt:entity-log
                      :tracking tracking)
-                    (list (crt:column-tracking-uuid :value (crt:entity-column-value tracking crt:column-uuid))
-                          (crt:column-page-from :value (crt:entity-column-value tracking crt:column-page))))))
+                    (crt:column-tracking-uuid :value (crt:entity-column-value tracking crt:column-uuid))
+                    (crt:column-page-from :value (crt:entity-column-value tracking crt:column-page)))))
            (setq crt:current-reading-log
                  (crt:entity-substitute-columns
                   crt:current-reading-log
-                  (list (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page))
-                        (crt:column-finished-at :value (crt:current-time)))))
+                  (crt:column-page-to :value (crt:entity-column-value tracking crt:column-page))
+                  (crt:column-finished-at :value (crt:current-time))))
            (setq crt:reading-leave-count 0)
            (message (format "A log: %s" (crt:entity-message crt:current-reading-log)))))))
 
