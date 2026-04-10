@@ -43,7 +43,7 @@
 (defun crt:ctable--model-data (lst)
   ""
   (mapcar (lambda (entity)
-            (let ((columns (remove-if-not (lambda (column) (eieio-oref column 'ctable-column))
+            (let ((columns (cl-remove-if-not (lambda (column) (eieio-oref column 'ctable-column))
                             (eieio-oref entity 'columns))))
               (append (mapcar (lambda (column) (crt:column-format column)) columns) (list entity))))
           lst))

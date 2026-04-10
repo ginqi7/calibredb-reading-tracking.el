@@ -86,7 +86,7 @@
 ;; (crt:db--order-by (crt:column-uuid :order-by 'desc) 'reading-log)
 
 (cl-defmethod crt:db--selects ((obj crt:entity))
-  (when-let* ((columns (remove-if-not #'crt:column-selected (eieio-oref obj 'columns)))
+  (when-let* ((columns (cl-remove-if-not #'crt:column-selected (eieio-oref obj 'columns)))
               (primary-table (eieio-oref obj 'table-name)))
     (vconcat (mapcar (lambda (column)
                        (if (crt:column-external-p column)
@@ -105,8 +105,8 @@
                     ,(crt:full-name reference-table reference-column)))))
 
 (cl-defmethod crt:entity--join-ons ((obj crt:entity))
-  (when-let* ((external-columns (remove-if-not #'crt:column-selected (remove-if-not #'crt:column-external-p (eieio-oref obj 'columns))))
-              (reference-columns (remove-if-not #'crt:column-reference-table (eieio-oref obj 'columns)))
+  (when-let* ((external-columns (cl-remove-if-not #'crt:column-selected (cl-remove-if-not #'crt:column-external-p (eieio-oref obj 'columns))))
+              (reference-columns (cl-remove-if-not #'crt:column-reference-table (eieio-oref obj 'columns)))
               (main-table (eieio-oref obj 'table-name))
               (left-joins (mapcar (lambda (column) (crt:db--join-on column main-table)) reference-columns)))
     (when external-columns
@@ -115,7 +115,7 @@
 (cl-defmethod crt:db--wheres ((obj crt:entity))
   (when-let* ((table-name (eieio-oref obj 'table-name))
               (wheres (mapcar (apply-partially #'crt:db--column-where table-name)
-                              (remove-if-not #'crt:column-where (eieio-oref obj 'columns)))))
+                              (cl-remove-if-not #'crt:column-where (eieio-oref obj 'columns)))))
     (list :where (append '(and (= 1 1)) wheres))))
 
 (cl-defmethod crt:db--group-by ((obj crt:entity))
@@ -125,7 +125,7 @@
 
 (cl-defmethod crt:db--order-bys ((obj crt:entity))
   (when-let ((order-bys (mapcar (apply-partially #'crt:db--order-by (eieio-oref obj 'table-name))
-                                (remove-if-not #'crt:column-order-by (eieio-oref obj 'columns)))))
+                                (cl-remove-if-not #'crt:column-order-by (eieio-oref obj 'columns)))))
     `(:order-by ,(vconcat order-bys))))
 
 (cl-defmethod crt:db--stored-columns ((obj crt:entity))
@@ -135,7 +135,7 @@
 (cl-defmethod crt:db--conflicts ((obj crt:entity))
   (let* ((columns (crt:db--stored-columns obj))
          (db-columns (mapcar (lambda (column) (eieio-oref column 'db-column)) columns))
-         (conflict-columns (remove-if-not (lambda (column) (eieio-oref column 'primary-key)) db-columns)))
+         (conflict-columns (cl-remove-if-not (lambda (column) (eieio-oref column 'primary-key)) db-columns)))
     `(:on-conflict ,(vconcat (mapcar (lambda (column) (intern (format ":%s" (eieio-oref column 'column)))) conflict-columns)))))
 
 (cl-defmethod crt:db--update-sets ((obj crt:entity))

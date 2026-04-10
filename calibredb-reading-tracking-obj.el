@@ -331,7 +331,7 @@
   (print (format "%s: %s" (eieio-class-name (eieio-object-class obj)) (eieio-oref obj 'value))))
 
 (cl-defmethod crt:entity-message ((obj crt:entity))
-  (let ((columns (remove nil (remove-if-not (lambda (column)
+  (let ((columns (remove nil (cl-remove-if-not (lambda (column)
                                               (and (eieio-oref column 'value)
                                                    (eieio-oref column 'ctable-column)))
 
