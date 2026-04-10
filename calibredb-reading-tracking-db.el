@@ -130,7 +130,7 @@
 
 (cl-defmethod crt:db--stored-columns ((obj crt:entity))
   (let* ((columns (eieio-oref obj 'columns)))
-    (remove-if #'crt:column-external-p (remove-if #'crt:column-virtual columns))))
+    (cl-remove-if #'crt:column-external-p (cl-remove-if #'crt:column-virtual columns))))
 
 (cl-defmethod crt:db--conflicts ((obj crt:entity))
   (let* ((columns (crt:db--stored-columns obj))
@@ -141,7 +141,7 @@
 (cl-defmethod crt:db--update-sets ((obj crt:entity))
   (let* ((columns (crt:db--stored-columns obj))
          (db-columns (mapcar (lambda (column) (eieio-oref column 'db-column)) columns))
-         (update-columns (remove-if (lambda (column) (eieio-oref column 'primary-key)) db-columns))
+         (update-columns (cl-remove-if (lambda (column) (eieio-oref column 'primary-key)) db-columns))
          (update-columns-names (mapcar (lambda (column) (eieio-oref column 'column)) update-columns)))
     `(:do-update-set ,(vconcat (mapcar (lambda (column) (list '= column (intern (format "excluded:%s" column)))) update-columns-names)))))
 
