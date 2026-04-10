@@ -63,6 +63,7 @@
 | =crt:start-log=     | =C-c r s=  | 开始新的阅读会话                       |
 | =crt:finish-log=    | =C-c r f=  | 结束当前阅读会话                       |
 | =crt:toggle-log=    | =C-c r t=  | 切换开始/结束（方便的单一命令）        |
+| =crt:calendar=      | =C-c r c=  | 显示阅读热力图日历                     |
 
 ** 使用方法
 

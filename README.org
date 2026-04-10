@@ -65,6 +65,7 @@ This creates the =reading-tracking= and =reading-logs= tables in the CalibreDB d
 | =crt:start-log=     | =C-c r s=               | Start a new reading session              |
 | =crt:finish-log=    | =C-c r f=               | Finish the current reading session       |
 | =crt:toggle-log=    | =C-c r t=               | Toggle start/finish (convenient single command) |
+| =crt:calendar=      | =C-c r c=               | Display reading activity heatmap calendar        |
 
 ** Usage
 
