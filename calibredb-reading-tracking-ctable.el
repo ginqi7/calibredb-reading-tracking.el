@@ -174,7 +174,7 @@ which is used by `crt:ctable-list-logs' to filter displayed logs."
   (when-let* ((path (file-name-concat calibredb-root-dir
                                       (crt:entity-column-value tracking crt:column-book-path)))
               (files (directory-files path t))
-              (book-path (find-if (lambda (file)
+              (book-path (cl-find-if (lambda (file)
                                     (member (downcase (or (file-name-extension file) ""))
                                             '("epub" "mobi" "azw" "azw3" "kfx" "pdf" "djvu" "fb2" "cbz" "cbr")))
                                   files)))

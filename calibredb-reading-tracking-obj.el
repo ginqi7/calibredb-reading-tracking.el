@@ -283,7 +283,7 @@
   (eieio-oref (eieio-oref obj 'db-column) ':reference-column))
 
 (cl-defmethod crt:entity-column-value ((obj crt:entity) column-class)
-  (eieio-oref (find-if (lambda (column) (same-class-p column column-class)) (eieio-oref obj 'columns)) 'value))
+  (eieio-oref (cl-find-if (lambda (column) (same-class-p column column-class)) (eieio-oref obj 'columns)) 'value))
 
 (cl-defmethod crt:entity-substitute-columns ((obj crt:entity) &optional new-columns)
   (let ((columns (eieio-oref obj 'columns)))
