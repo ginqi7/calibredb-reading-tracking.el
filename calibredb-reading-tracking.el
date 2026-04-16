@@ -145,6 +145,24 @@ Displays a message if there is no unfinished log to finish."
                                 (crt:column-finished-at :value (crt:current-time))))))))
         (message "There is not an unfinished log.")))))
 
+(defun crt:finish-tracking (&optional tracking)
+  "Finish the current reading tracking."
+  (interactive)
+  (when-let* ((tracking (or tracking (crt:parse-buffer) (crt:message-return-nil (format "This book file is not in calibredb. [%s]" (buffer-file-name)))))
+              (log (crt:entity-substitute-columns
+                    (crt:entity-log)
+                    (crt:column-tracking-uuid
+                     :where '=
+                     :value (crt:entity-column-value tracking crt:column-uuid))))
+              (latest-log (car (crt:query log)))
+              (finished-at (crt:entity-column-value latest-log crt:column-finished-at)))
+      (message (format "Finished a Tracking: %s"
+                       (crt:entity-message
+                        (crt:add-or-update
+                         (crt:entity-substitute-columns
+                          tracking
+                          (crt:column-finished-at :value finished-at))))))))
+
 (defun crt:toggle-log ()
   "Toggle between starting and finishing a reading session.
 

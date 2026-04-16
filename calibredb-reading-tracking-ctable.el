@@ -204,6 +204,11 @@ log list."
          (log (car (last row))))
     (crt:ctable-list-logs (eieio-oref log 'tracking))))
 
+(defun crt:ctable-tracking-action-refresh ()
+  ""
+  (interactive)
+  (crt:list-tracking))
+
 (defun crt:ctable-open-book ()
   (interactive)
   (let* ((cp (ctbl:cp-get-component))
@@ -247,12 +252,24 @@ to get the tracking UUID."
         (crt:delete log))
     (crt:ctable-log-action-refresh)))
 
+(defun crt:ctable-tracking-action-finish ()
+  ""
+  (interactive)
+  (let* ((cp (ctbl:cp-get-component))
+         (row (ctbl:cp-get-selected-data-row cp))
+         (tracking (car (last row))))
+    (when (yes-or-no-p (format "Are you sure you want to finish: %s?" (crt:entity-message tracking)))
+        (crt:finish-tracking tracking))
+    (crt:ctable-tracking-action-refresh)))
+
 (transient-define-prefix crt:ctable-tracking-actions ()
   "Transient menu for tracking table actions.
 
 Provides commands available when selecting a tracking row."
   ["Tracking Actions"
    ("RET" "List Logs" crt:ctable-tracking-action-list-logs)
+   ("r" "Refresh tracking" crt:ctable-tracking-action-refresh)
+   ("f" "Finish tracking" crt:ctable-tracking-action-finish)
    ("o" "Open Book" crt:ctable-open-book)])
 
 (transient-define-prefix crt:ctable-log-actions ()
